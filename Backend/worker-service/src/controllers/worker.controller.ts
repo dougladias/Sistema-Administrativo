@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
 import workerService from '../services/worker.service';
-import { ApiError } from 'shared/src/utils/error.utils';
-import { createLogger } from 'shared/src/utils/logger.utils';
-import { WorkerCreate, WorkerUpdate } from 'shared/src/schemas/worker.schema';
+import { ApiError } from '../../../shared/src/utils/apiError';
+import { createLogger } from '../../../shared/src/utils/logger';
+import { WorkerCreate, WorkerUpdate } from '../../../shared/src/schemas/worker.schema';
 
 const logger = createLogger({ serviceName: 'worker-service' });
 

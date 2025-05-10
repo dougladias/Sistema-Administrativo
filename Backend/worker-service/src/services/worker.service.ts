@@ -2,8 +2,7 @@ import mongoose from 'mongoose';
 import { createWorkerModel, IWorker } from '../../../shared/src/models/worker.model';
 import { WorkerCreate, WorkerUpdate, WorkerFilter, validateWorkerCreate, validateWorkerUpdate } from '../../../shared/src/schemas/worker.schema';
 import { ApiError } from '../../../shared/src/utils/apiError';
-import { createLogger } from 'shared';
-
+import { createLogger } from '../../../shared/src/utils/logger';
 const logger = createLogger({ 
   serviceName: 'worker-service',
   customMetadata: { module: 'worker-service' }

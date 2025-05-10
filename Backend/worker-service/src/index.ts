@@ -2,8 +2,8 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import app from './app';
-import { connectDB } from 'shared/src/database/app';
-import { createLogger } from 'shared/src/utils/logger.utils';
+import { connectDB } from './config/database'; // Agora importamos do nosso arquivo próprio
+import { createLogger } from '../../shared/src/utils/logger';
 import { env } from './config/env';
 
 const logger = createLogger({ serviceName: 'worker-service' });

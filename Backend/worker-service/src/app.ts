@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import workerRoutes from './routes/worker.routes';
-import { createLogger } from 'shared/src/utils/logger.utils';
+import { createLogger } from '../../shared/src/utils/logger';
 
 const logger = createLogger({ serviceName: 'worker-service' });
 const app: Express = express();
