@@ -2,10 +2,11 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import app from './app';
-import { connectDB } from './config/database';
-import logger from './utils/logger';
+import { connectDB } from 'shared/src/database/app';
+import { createLogger } from 'shared/src/utils/logger.utils';
 import { env } from './config/env';
 
+const logger = createLogger({ serviceName: 'worker-service' });
 const PORT = env.port;
 
 // Iniciar o servidor

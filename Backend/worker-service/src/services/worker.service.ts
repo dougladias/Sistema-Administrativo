@@ -1,12 +1,20 @@
 import mongoose from 'mongoose';
-import Worker, { IWorker } from '../models/worker.model';
-import { WorkerCreateDTO, WorkerUpdateDTO, WorkerFilterDTO } from '../dto/worker.dto';
-import ApiError from '../utils/apiError';
-import logger from '../utils/logger';
+import { createWorkerModel, IWorker } from '../../../shared/src/models/worker.model';
+import { WorkerCreate, WorkerUpdate, WorkerFilter, validateWorkerCreate, validateWorkerUpdate } from '../../../shared/src/schemas/worker.schema';
+import { ApiError } from '../../../shared/src/utils/apiError';
+import { createLogger } from 'shared';
+
+const logger = createLogger({ 
+  serviceName: 'worker-service',
+  customMetadata: { module: 'worker-service' }
+});
+
+// Inicializar o modelo Worker
+const Worker = createWorkerModel();
 
 class WorkerService {
   // Buscar todos os funcionários com filtros opcionais
-  async findAll(filters: Partial<WorkerFilterDTO> = {}): Promise<IWorker[]> {
+  async findAll(filters: Partial<WorkerFilter> = {}): Promise<IWorker[]> {
     try {
       const query: Record<string, any> = {};
       
@@ -45,7 +53,7 @@ class WorkerService {
   async findById(id: string): Promise<IWorker | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
       
       const worker = await Worker.findById(id);
@@ -58,25 +66,28 @@ class WorkerService {
   }
   
   // Criar um novo funcionário
-  async create(workerData: WorkerCreateDTO): Promise<IWorker> {
+  async create(workerData: WorkerCreate): Promise<IWorker> {
     try {
+      // Validar dados usando schema compartilhado
+      const validatedData = validateWorkerCreate(workerData);
+      
       // Verificar se já existe funcionário com o mesmo CPF
-      const existingWorker = await Worker.findOne({ cpf: workerData.cpf });
+      const existingWorker = await Worker.findOne({ cpf: validatedData.cpf });
       
       if (existingWorker) {
-        throw new ApiError(409, 'Já existe um funcionário com este CPF');
+        throw ApiError.conflict('Já existe um funcionário com este CPF');
       }
       
       // Verificar se já existe funcionário com o mesmo email
-      const existingEmail = await Worker.findOne({ email: workerData.email });
+      const existingEmail = await Worker.findOne({ email: validatedData.email });
       
       if (existingEmail) {
-        throw new ApiError(409, 'Já existe um funcionário com este email');
+        throw ApiError.conflict('Já existe um funcionário com este email');
       }
       
       // Criar o funcionário
       const worker = new Worker({
-        ...workerData,
+        ...validatedData,
         logs: [] // Iniciar com array de logs vazio
       });
       
@@ -90,11 +101,14 @@ class WorkerService {
   }
   
   // Atualizar um funcionário
-  async update(id: string, workerData: WorkerUpdateDTO): Promise<IWorker | null> {
+  async update(id: string, workerData: WorkerUpdate): Promise<IWorker | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
+      
+      // Validar dados usando schema compartilhado
+      const validatedData = validateWorkerUpdate(workerData);
       
       // Verificar se o funcionário existe
       const worker = await Worker.findById(id);
@@ -104,32 +118,27 @@ class WorkerService {
       }
       
       // Se estiver atualizando CPF, verificar se já existe outro funcionário com esse CPF
-      if (workerData.cpf && workerData.cpf !== worker.cpf) {
-        const existingWorker = await Worker.findOne({ cpf: workerData.cpf });
+      if (validatedData.cpf && validatedData.cpf !== worker.cpf) {
+        const existingWorker = await Worker.findOne({ cpf: validatedData.cpf });
         
         if (existingWorker && existingWorker._id.toString() !== id) {
-          throw new ApiError(409, 'Já existe um funcionário com este CPF');
+          throw ApiError.conflict('Já existe um funcionário com este CPF');
         }
       }
       
       // Se estiver atualizando email, verificar se já existe outro funcionário com esse email
-      if (workerData.email && workerData.email !== worker.email) {
-        const existingEmail = await Worker.findOne({ email: workerData.email });
+      if (validatedData.email && validatedData.email !== worker.email) {
+        const existingEmail = await Worker.findOne({ email: validatedData.email });
         
         if (existingEmail && existingEmail._id.toString() !== id) {
-          throw new ApiError(409, 'Já existe um funcionário com este email');
+          throw ApiError.conflict('Já existe um funcionário com este email');
         }
-      }
-      
-      // Garantir que o contrato seja válido
-      if (workerData.contract && !['CLT', 'PJ'].includes(workerData.contract)) {
-        throw new ApiError(400, 'Tipo de contrato inválido. Use CLT ou PJ.');
       }
       
       // Atualizar o funcionário
       const updatedWorker = await Worker.findByIdAndUpdate(
         id,
-        { $set: workerData },
+        { $set: validatedData },
         { new: true, runValidators: true }
       );
       
@@ -144,7 +153,7 @@ class WorkerService {
   async delete(id: string): Promise<boolean> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
       
       const result = await Worker.findByIdAndDelete(id);
@@ -160,7 +169,7 @@ class WorkerService {
   async registerEntry(id: string): Promise<IWorker | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
       
       const worker = await Worker.findById(id);
@@ -188,7 +197,7 @@ class WorkerService {
   async registerExit(id: string): Promise<IWorker | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
       
       const worker = await Worker.findById(id);
@@ -232,7 +241,7 @@ class WorkerService {
   async registerAbsence(id: string): Promise<IWorker | null> {
     try {
       if (!mongoose.Types.ObjectId.isValid(id)) {
-        throw new ApiError(400, 'ID inválido');
+        throw ApiError.badRequest('ID inválido');
       }
       
       const worker = await Worker.findById(id);
@@ -243,9 +252,8 @@ class WorkerService {
       
       // Adicionar registro de ausência
       worker.logs.push({
-        faltou: true,
-        date: new Date(),
-        absent: true
+        absent: true,
+        date: new Date()
       });
       
       await worker.save();
