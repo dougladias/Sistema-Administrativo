@@ -22,3 +22,4 @@ async function handleShutdown(): Promise<void> {
   console.log("👋 Conexão encerrada com sucesso");
   process.exit(0);
 }
+
