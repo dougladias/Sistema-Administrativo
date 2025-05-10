@@ -1,28 +1,51 @@
-import { createApp } from './config/app';
+import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
 import { env } from './config/env';
-import { logger } from './config/logger';
+import { errorHandler } from './middleware/error-handler.middleware';
+import { requestLogger } from './middleware/request-logger.middleware';
+import { corsMiddleware } from './middleware/cors.middleware';
+import { initializeServiceRegistry } from './services/service-registry';
+import routes from './routes/app';
 
-const app = createApp();
+export function createApp() {
+  const app = express();
 
-const server = app.listen(env.PORT, () => {
-  logger.info(`🚀 ${env.APP_NAME} está rodando na porta ${env.PORT} em modo ${env.NODE_ENV}`);
-});
+  // Inicializar o registro de serviços
+  initializeServiceRegistry();
 
-// Tratamento de encerramento gracioso
-const shutdownGracefully = async () => {
-  logger.info('Recebido sinal de encerramento. Encerrando graciosamente...');
-  
-  server.close(() => {
-    logger.info('Servidor HTTP fechado.');
-    process.exit(0);
+  // Middlewares de segurança e otimização
+  app.use(helmet());
+  app.use(compression());
+  app.use(express.json());
+  app.use(corsMiddleware);
+  app.use(requestLogger);
+
+  // Rotas da API
+  app.use('/api', routes);
+
+  // Health check
+  app.get('/health', (req, res) => {
+    res.status(200).json({ 
+      status: 'ok', 
+      service: env.APP_NAME,
+      version: process.env.npm_package_version || '1.0.0',
+      timestamp: new Date().toISOString()
+    });
   });
-  
-  // Se não fechar em 10 segundos, forçar o encerramento
-  setTimeout(() => {
-    logger.error('Não foi possível encerrar graciosamente, forçando o encerramento');
-    process.exit(1);
-  }, 10000);
-};
 
-process.on('SIGTERM', shutdownGracefully);
-process.on('SIGINT', shutdownGracefully);
+  // Rota para status dos serviços registrados
+  app.get('/services', (req, res) => {
+    const servicesList = require('./services/service-registry').getAllServices();
+    res.status(200).json({ 
+      services: servicesList,
+      count: servicesList.length,
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  // Handler de erros global
+  app.use(errorHandler);
+
+  return app;
+}

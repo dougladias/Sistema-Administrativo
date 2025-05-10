@@ -1,5 +1,6 @@
 import { env } from '../config/env';
 import httpClient from '../utils/http-client';
+import { getServiceUrl } from './service-registry';
 
 interface LoginRequest {
   email: string;
@@ -13,21 +14,26 @@ interface RegisterRequest {
 }
 
 export async function login(data: LoginRequest) {
-  return httpClient.post(`${env.AUTH_SERVICE_URL}/auth/login`, data);
+  const authServiceUrl = getServiceUrl('auth');
+  return httpClient.post(`${authServiceUrl}/auth/login`, data);
 }
 
 export async function register(data: RegisterRequest) {
-  return httpClient.post(`${env.AUTH_SERVICE_URL}/auth/register`, data);
+  const authServiceUrl = getServiceUrl('auth');
+  return httpClient.post(`${authServiceUrl}/auth/register`, data);
 }
 
 export async function validateToken(token: string) {
-  return httpClient.post(`${env.AUTH_SERVICE_URL}/auth/validate`, { token });
+  const authServiceUrl = getServiceUrl('auth');
+  return httpClient.post(`${authServiceUrl}/auth/validate`, { token });
 }
 
 export async function refreshToken(token: string) {
-  return httpClient.post(`${env.AUTH_SERVICE_URL}/auth/refresh`, { token });
+  const authServiceUrl = getServiceUrl('auth');
+  return httpClient.post(`${authServiceUrl}/auth/refresh`, { token });
 }
 
 export async function getUserProfile(userId: string) {
-  return httpClient.get(`${env.AUTH_SERVICE_URL}/users/${userId}`);
+  const authServiceUrl = getServiceUrl('auth');
+  return httpClient.get(`${authServiceUrl}/users/${userId}`);
 }

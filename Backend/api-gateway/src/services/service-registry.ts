@@ -1,7 +1,8 @@
-// api-gateway/src/services/service-registry.ts
 import axios from 'axios';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
+import { createRedisClient } from '../utils/redis-client';
+import { EventEmitter } from 'events';
 
 /**
  * Interface que define as informações de um serviço registrado
@@ -18,11 +19,26 @@ export interface ServiceInfo {
 }
 
 /**
+ * Eventos emitidos pelo registro de serviços
+ */
+export enum ServiceRegistryEvent {
+  SERVICE_REGISTERED = 'service:registered',
+  SERVICE_UNREGISTERED = 'service:unregistered',
+  SERVICE_UP = 'service:up',
+  SERVICE_DOWN = 'service:down',
+  HEALTH_CHECK_STARTED = 'health:check:started',
+  HEALTH_CHECK_COMPLETED = 'health:check:completed',
+}
+
+/**
  * Classe responsável por gerenciar o registro e descoberta de serviços
  */
-class ServiceRegistry {
+class ServiceRegistry extends EventEmitter {
   // Mapa de serviços registrados
   private services: Map<string, ServiceInfo> = new Map();
+  
+  // Cache Redis (opcional - usado apenas se configurado)
+  private redisClient: any = null;
   
   // Intervalo de verificação de saúde (30 segundos por padrão)
   private readonly healthCheckInterval: number = 30000;
@@ -32,6 +48,28 @@ class ServiceRegistry {
   
   // Flag para indicar se o registro está inicializado
   private initialized: boolean = false;
+
+  constructor() {
+    super();
+    
+    // Configurar Redis se disponível
+    this.setupRedis();
+  }
+
+  /**
+   * Configura o cliente Redis se as configurações estiverem disponíveis
+   */
+  private async setupRedis(): Promise<void> {
+    if (env.REDIS_HOST && env.NODE_ENV === 'production') {
+      try {
+        this.redisClient = await createRedisClient();
+        logger.info('Redis configurado para o registro de serviços');
+      } catch (error) {
+        logger.error('Falha ao configurar Redis para o registro de serviços:', error);
+        this.redisClient = null;
+      }
+    }
+  }
 
   /**
    * Inicializa o registro de serviços com os serviços padrão
@@ -57,12 +95,51 @@ class ServiceRegistry {
       healthCheck: '/health',
     });
     
-        
     // Iniciar verificações periódicas de saúde
     this.startHealthChecks();
     
     this.initialized = true;
     logger.info('Registro de serviços inicializado com sucesso');
+    
+    // Persistir no Redis se disponível
+    this.persistToRedis();
+  }
+
+  /**
+   * Persiste o estado atual dos serviços no Redis
+   */
+  private async persistToRedis(): Promise<void> {
+    if (!this.redisClient) return;
+    
+    try {
+      const servicesData = JSON.stringify(Array.from(this.services.entries()));
+      await this.redisClient.set('service_registry:services', servicesData);
+      logger.debug('Estado do registro de serviços persistido no Redis');
+    } catch (error) {
+      logger.error('Erro ao persistir registro de serviços no Redis:', error);
+    }
+  }
+
+  /**
+   * Carrega o estado dos serviços do Redis
+   */
+  private async loadFromRedis(): Promise<boolean> {
+    if (!this.redisClient) return false;
+    
+    try {
+      const servicesData = await this.redisClient.get('service_registry:services');
+      
+      if (servicesData) {
+        const servicesEntries = JSON.parse(servicesData);
+        this.services = new Map(servicesEntries);
+        logger.info('Estado do registro de serviços carregado do Redis');
+        return true;
+      }
+    } catch (error) {
+      logger.error('Erro ao carregar registro de serviços do Redis:', error);
+    }
+    
+    return false;
   }
 
   /**
@@ -84,15 +161,23 @@ class ServiceRegistry {
       : `/${service.healthCheck}`;
     
     // Registrar o serviço
-    this.services.set(service.id, {
+    const serviceInfo: ServiceInfo = {
       ...service,
       url,
       healthCheck: `${url}${healthCheck}`,
       isActive: false, // Começa como inativo até verificação de saúde
       lastCheck: new Date(),
-    });
+    };
+    
+    this.services.set(service.id, serviceInfo);
     
     logger.info(`Serviço ${service.id} registrado com URL ${url}`);
+    
+    // Emitir evento de registro
+    this.emit(ServiceRegistryEvent.SERVICE_REGISTERED, serviceInfo);
+    
+    // Persistir no Redis se disponível
+    this.persistToRedis();
     
     // Realizar verificação de saúde inicial
     this.checkServiceHealth(service.id);
@@ -108,8 +193,19 @@ class ServiceRegistry {
       return false;
     }
     
+    const serviceInfo = this.services.get(serviceId);
     this.services.delete(serviceId);
+    
     logger.info(`Serviço ${serviceId} removido do registro`);
+    
+    // Emitir evento de remoção
+    if (serviceInfo) {
+      this.emit(ServiceRegistryEvent.SERVICE_UNREGISTERED, serviceInfo);
+    }
+    
+    // Persistir no Redis se disponível
+    this.persistToRedis();
+    
     return true;
   }
 
@@ -200,6 +296,11 @@ class ServiceRegistry {
   public async checkAllServicesHealth(): Promise<void> {
     logger.debug('Iniciando verificação de saúde de todos os serviços');
     
+    this.emit(ServiceRegistryEvent.HEALTH_CHECK_STARTED, {
+      timestamp: new Date(),
+      services: this.getAllServices()
+    });
+    
     const promises = Array.from(this.services.keys()).map(
       serviceId => this.checkServiceHealth(serviceId)
     );
@@ -210,6 +311,16 @@ class ServiceRegistry {
     const totalCount = this.services.size;
     
     logger.info(`Verificação de saúde concluída: ${activeCount}/${totalCount} serviços ativos`);
+    
+    this.emit(ServiceRegistryEvent.HEALTH_CHECK_COMPLETED, {
+      timestamp: new Date(),
+      totalServices: totalCount,
+      activeServices: activeCount,
+      services: this.getAllServices()
+    });
+    
+    // Persistir no Redis após atualização
+    this.persistToRedis();
   }
 
   /**
@@ -251,9 +362,16 @@ class ServiceRegistry {
       if (previousStatus !== isHealthy) {
         if (isHealthy) {
           logger.info(`Serviço ${serviceId} agora está ATIVO`);
+          this.emit(ServiceRegistryEvent.SERVICE_UP, service);
         } else {
           logger.warn(`Serviço ${serviceId} agora está INATIVO (status: ${response.status})`);
+          this.emit(ServiceRegistryEvent.SERVICE_DOWN, service);
         }
+      }
+      
+      // Persistir no Redis em caso de mudança de status
+      if (previousStatus !== isHealthy) {
+        this.persistToRedis();
       }
       
       return isHealthy;
@@ -264,6 +382,10 @@ class ServiceRegistry {
       
       if (previousStatus) {
         logger.error(`Serviço ${serviceId} agora está INATIVO: ${error.message}`);
+        this.emit(ServiceRegistryEvent.SERVICE_DOWN, service);
+        
+        // Persistir no Redis em caso de mudança de status
+        this.persistToRedis();
       } else {
         logger.debug(`Serviço ${serviceId} continua INATIVO: ${error.message}`);
       }
@@ -279,6 +401,13 @@ class ServiceRegistry {
     this.stopHealthChecks();
     this.services.clear();
     this.initialized = false;
+    
+    // Fechar conexão Redis se existir
+    if (this.redisClient) {
+      this.redisClient.quit();
+      this.redisClient = null;
+    }
+    
     logger.info('Registro de serviços encerrado');
   }
 }
@@ -327,5 +456,13 @@ export function shutdownServiceRegistry(): void {
   serviceRegistry.shutdown();
 }
 
-// Exportar a instância do registry para testes
+// Para permitir a escuta de eventos
+export function onServiceRegistryEvent(
+  event: ServiceRegistryEvent, 
+  listener: (...args: any[]) => void
+): void {
+  serviceRegistry.on(event, listener);
+}
+
+// Exportar a instância do registry para testes e acesso avançado
 export { serviceRegistry };
