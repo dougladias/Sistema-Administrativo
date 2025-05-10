@@ -22,6 +22,9 @@ const envSchema = z.object({
   port: z.preprocess(val => Number(val), z.number().default(3000)),
 });
 
+// Este módulo gerencia as variáveis de ambiente necessárias para a aplicação,
+// realizando validação via Zod e fornecendo valores padrão quando apropriado.
+// As variáveis são carregadas do arquivo .env na raiz do projeto.
 function loadEnvironment() {
   try {
     const _env = {
@@ -48,6 +51,10 @@ function loadEnvironment() {
   }
 }
 
+// Carrega as variáveis de ambiente
+// e as exporta para uso em outros módulos
+// O arquivo .env deve estar na raiz do projeto
+// e conter as variáveis necessárias
 export const env = loadEnvironment();
 
 export const isProd = env.nodeEnv === 'production';

@@ -48,9 +48,8 @@ const colors = {
 // Adicionar cores ao winston
 winston.addColors(colors);
 
-/**
- * Cria um logger personalizado para um microsserviço
- */
+// Cria um logger personalizado para um microsserviço
+
 export function createLogger(options: LoggerOptions): winston.Logger {
   const {
     serviceName,
@@ -160,7 +159,7 @@ export function createLogger(options: LoggerOptions): winston.Logger {
     },
     defaultMeta: defaultMetadata,
     transports,
-    exitOnError: false // Não encerrar em caso de erro não tratado
+    exitOnError: false 
   });
 
   // Adicionar métodos para categorias específicas
@@ -230,6 +229,7 @@ export function createLogger(options: LoggerOptions): winston.Logger {
       });
     };
 
+    // Logger específico para operações de banco de dados
     childLogger.database = (message: string, meta: any = {}) => {
       childLogger.log({
         level: LogLevel.DEBUG,
@@ -239,6 +239,7 @@ export function createLogger(options: LoggerOptions): winston.Logger {
       });
     };
 
+    // Logger específico para eventos de segurança
     childLogger.security = (message: string, meta: any = {}) => {
       childLogger.log({
         level: LogLevel.WARN,
@@ -248,6 +249,7 @@ export function createLogger(options: LoggerOptions): winston.Logger {
       });
     };
 
+    // Logger específico para métricas de performance
     childLogger.performance = (message: string, meta: any = {}) => {
       childLogger.log({
         level: LogLevel.DEBUG,
@@ -263,9 +265,8 @@ export function createLogger(options: LoggerOptions): winston.Logger {
   return enhancedLogger;
 }
 
-/**
- * Middleware para logar requisições HTTP
- */
+
+// Middleware para logar requisições HTTP
 export function requestLoggerMiddleware(logger: winston.Logger) {
   return (req: any, res: any, next: Function) => {
     // Criar um ID de requisição ou usar um existente
@@ -329,9 +330,8 @@ export function requestLoggerMiddleware(logger: winston.Logger) {
   };
 }
 
-/**
- * Formata um erro para log 
- */
+// Formata um erro para log 
+
 export function formatError(error: any): any {
   const formattedError: any = {
     message: error.message || 'Unknown error',
@@ -360,6 +360,7 @@ export function formatError(error: any): any {
     }, {} as Record<string, string>);
   }
   
+  // Para erros de chave duplicada
   if (error.name === 'MongoServerError' && error.code === 11000) {
     formattedError.duplicateKey = error.keyValue;
   }
@@ -367,9 +368,8 @@ export function formatError(error: any): any {
   return formattedError;
 }
 
-/**
- * Wrapper para logar e rethrow exceptions
- */
+
+// Wrapper para logar e rethrow exceptions
 export function withErrorLogging<T>(
   logger: winston.Logger, 
   fn: () => Promise<T>, 
@@ -381,9 +381,8 @@ export function withErrorLogging<T>(
   });
 }
 
-/**
- * Cria um logger silencioso para testes
- */
+
+// Cria um logger silencioso para testes
 export function createSilentLogger(): winston.Logger {
   return winston.createLogger({
     silent: true,
@@ -391,9 +390,8 @@ export function createSilentLogger(): winston.Logger {
   }) as any;
 }
 
-/**
- * Cria um logger padrão
- */
+
+// Cria um logger padrão
 export function createDefaultLogger(serviceName: string): winston.Logger {
   return createLogger({
     serviceName,

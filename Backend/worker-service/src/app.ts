@@ -37,6 +37,7 @@ app.use((req: Request, res: Response) => {
 app.use((err: any, req: Request, res: Response) => {
   logger.error('Erro na aplicação:', err);
   
+  // Se o erro for uma instância de ApiError, use seu método toResponse
   res.status(err.statusCode || 500).json({
     status: 'error',
     message: err.message || 'Erro interno do servidor'

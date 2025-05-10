@@ -1,15 +1,11 @@
 
-/**
- * Formata uma data para o formato ISO sem timezone (YYYY-MM-DD)
- */
+// Utilitários para manipulação de datas
 export function formatDateToISODate(date: Date | string | number): string {
   const d = new Date(date);
   return d.toISOString().split('T')[0];
 }
 
-/**
- * Formata uma data para mostrar data e hora local (DD/MM/YYYY HH:MM)
- */
+// Formata uma data para o formato brasileiro (DD/MM/YYYY HH:mm)
 export function formatDateTimeLocal(date: Date | string | number): string {
   const d = new Date(date);
   
@@ -22,9 +18,7 @@ export function formatDateTimeLocal(date: Date | string | number): string {
   return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
-/**
- * Formata uma data para o formato brasileiro (DD/MM/YYYY)
- */
+// description
 export function formatDateBR(date: Date | string | number): string {
   const d = new Date(date);
   
@@ -35,9 +29,7 @@ export function formatDateBR(date: Date | string | number): string {
   return `${day}/${month}/${year}`;
 }
 
-/**
- * Converte uma string no formato DD/MM/YYYY para objeto Date
- */
+// Formata uma data para o formato brasileiro (DD/MM/YYYY)
 export function parseDate(dateString: string): Date {
   const parts = dateString.split('/');
   if (parts.length !== 3) {
@@ -51,61 +43,53 @@ export function parseDate(dateString: string): Date {
   return new Date(year, month, day);
 }
 
-/**
- * Adiciona dias a uma data
- */
+
+// Adiciona dias a uma data
 export function addDays(date: Date, days: number): Date {
   const result = new Date(date);
   result.setDate(result.getDate() + days);
   return result;
 }
 
-/**
- * Subtrai dias de uma data
- */
+// Subtrai dias de uma data
 export function subtractDays(date: Date, days: number): Date {
   return addDays(date, -days);
 }
 
-/**
- * Adiciona meses a uma data
- */
+
+// Adiciona meses a uma data
 export function addMonths(date: Date, months: number): Date {
   const result = new Date(date);
   result.setMonth(result.getMonth() + months);
   return result;
 }
 
-/**
- * Adiciona anos a uma data
- */
+
+// Adiciona anos a uma data 
 export function addYears(date: Date, years: number): Date {
   const result = new Date(date);
   result.setFullYear(result.getFullYear() + years);
   return result;
 }
 
-/**
- * Retorna o início do dia (00:00:00)
- */
+
+// Retorna o início do dia (00:00:00)
 export function startOfDay(date: Date): Date {
   const result = new Date(date);
   result.setHours(0, 0, 0, 0);
   return result;
 }
 
-/**
- * Retorna o fim do dia (23:59:59.999)
- */
+
+// Retorna o fim do dia (23:59:59.999) 
 export function endOfDay(date: Date): Date {
   const result = new Date(date);
   result.setHours(23, 59, 59, 999);
   return result;
 }
 
-/**
- * Retorna o início do mês
- */
+
+// Retorna o início do mês 
 export function startOfMonth(date: Date): Date {
   const result = new Date(date);
   result.setDate(1);
@@ -113,9 +97,8 @@ export function startOfMonth(date: Date): Date {
   return result;
 }
 
-/**
- * Retorna o fim do mês
- */
+
+// Retorna o fim do mês
 export function endOfMonth(date: Date): Date {
   const result = new Date(date);
   result.setMonth(result.getMonth() + 1);
@@ -124,33 +107,28 @@ export function endOfMonth(date: Date): Date {
   return result;
 }
 
-/**
- * Calcula a diferença em dias entre duas datas
- */
+// Calcula a diferença em dias entre duas datas
 export function daysBetween(dateFrom: Date, dateTo: Date): number {
   const oneDay = 24 * 60 * 60 * 1000; // horas*minutos*segundos*milissegundos
   const diffMs = Math.abs(dateTo.getTime() - dateFrom.getTime());
   return Math.round(diffMs / oneDay);
 }
 
-/**
- * Calcula a diferença em meses entre duas datas
- */
+
+// Calcula a diferença em meses entre duas datas
 export function monthsBetween(dateFrom: Date, dateTo: Date): number {
   const months = (dateTo.getFullYear() - dateFrom.getFullYear()) * 12;
   return months + dateTo.getMonth() - dateFrom.getMonth();
 }
 
-/**
- * Calcula a diferença em anos entre duas datas
- */
+
+// Calcula a diferença em anos entre duas datas
 export function yearsBetween(dateFrom: Date, dateTo: Date): number {
   return monthsBetween(dateFrom, dateTo) / 12;
 }
 
-/**
- * Verifica se uma data é hoje
- */
+
+// Verifica se uma data é hoje
 export function isToday(date: Date): boolean {
   const today = new Date();
   return date.getDate() === today.getDate() &&
@@ -158,40 +136,35 @@ export function isToday(date: Date): boolean {
     date.getFullYear() === today.getFullYear();
 }
 
-/**
- * Verifica se uma data é maior que hoje
- */
+
+// Verifica se uma data é maior que hoje
 export function isAfterToday(date: Date): boolean {
   const today = startOfDay(new Date());
   return date.getTime() > today.getTime();
 }
 
-/**
- * Verifica se uma data é menor que hoje
- */
+
+// Verifica se uma data é menor que hoje 
 export function isBeforeToday(date: Date): boolean {
   const today = startOfDay(new Date());
   return date.getTime() < today.getTime();
 }
 
-/**
- * Verifica se uma data é um dia de semana (não é sábado nem domingo)
- */
+
+// Verifica se uma data é um dia de semana (não é sábado nem domingo)
 export function isWeekday(date: Date): boolean {
   const day = date.getDay();
   return day !== 0 && day !== 6; // 0 = domingo, 6 = sábado
 }
 
-/**
- * Verifica se uma data é um final de semana (sábado ou domingo)
- */
+
+// Verifica se uma data é um final de semana (sábado ou domingo)
 export function isWeekend(date: Date): boolean {
   return !isWeekday(date);
 }
 
-/**
- * Retorna o nome do mês em português
- */
+
+// Retorna o nome do mês em português
 export function getMonthNamePT(month: number): string {
   const months = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -203,9 +176,7 @@ export function getMonthNamePT(month: number): string {
   return months[adjustedMonth];
 }
 
-/**
- * Retorna o nome do dia da semana em português
- */
+// Retorna o nome do dia da semana em português
 export function getWeekdayNamePT(date: Date): string {
   const weekdays = [
     'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira',
@@ -215,9 +186,8 @@ export function getWeekdayNamePT(date: Date): string {
   return weekdays[date.getDay()];
 }
 
-/**
- * Retorna a data por extenso em português (ex: "14 de Março de 2023")
- */
+
+// Retorna a data por extenso em português (ex: "14 de Março de 2023")
 export function getFullDatePT(date: Date): string {
   const day = date.getDate();
   const month = getMonthNamePT(date.getMonth() + 1);
@@ -226,9 +196,8 @@ export function getFullDatePT(date: Date): string {
   return `${day} de ${month} de ${year}`;
 }
 
-/**
- * Calcula a idade baseada na data de nascimento
- */
+
+// Calcula a idade baseada na data de nascimento 
 export function calculateAge(birthDate: Date): number {
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
@@ -241,16 +210,14 @@ export function calculateAge(birthDate: Date): number {
   return age;
 }
 
-/**
- * Retorna um objeto Date a partir de ano, mês e dia
- */
+
+// Retorna um objeto Date a partir de ano, mês e dia
 export function createDate(year: number, month: number, day: number): Date {
   return new Date(year, month - 1, day);
 }
 
-/**
- * Verifica se uma string é uma data válida no formato DD/MM/YYYY
- */
+
+// Verifica se uma string é uma data válida no formato DD/MM/YYYY 
 export function isValidDateString(dateString: string): boolean {
   if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateString)) {
     return false;

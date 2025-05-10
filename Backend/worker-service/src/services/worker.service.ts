@@ -22,18 +22,22 @@ class WorkerService {
         query.name = { $regex: filters.name, $options: 'i' }; // Case-insensitive
       }
       
+      // Se o filtro de CPF for fornecido, verificar se é válido
       if (filters.department) {
         query.department = filters.department;
       }
       
+      // Se o filtro de CPF for fornecido, verificar se é válido
       if (filters.role) {
         query.role = { $regex: filters.role, $options: 'i' };
       }
       
+      // Se o filtro de CPF for fornecido, verificar se é válido
       if (filters.status) {
         query.status = filters.status;
       }
       
+      // Se o filtro de CPF for fornecido, verificar se é válido
       if (filters.contract) {
         query.contract = filters.contract;
       }
@@ -55,6 +59,7 @@ class WorkerService {
         throw ApiError.badRequest('ID inválido');
       }
       
+      // Verificar se o ID é válido
       const worker = await Worker.findById(id);
       
       return worker;
@@ -90,6 +95,7 @@ class WorkerService {
         logs: [] // Iniciar com array de logs vazio
       });
       
+      // Salvar no banco de dados
       await worker.save();
       
       return worker;
@@ -155,6 +161,7 @@ class WorkerService {
         throw ApiError.badRequest('ID inválido');
       }
       
+      // Verificar se o funcionário existe
       const result = await Worker.findByIdAndDelete(id);
       
       return !!result;
@@ -171,6 +178,7 @@ class WorkerService {
         throw ApiError.badRequest('ID inválido');
       }
       
+      // Verificar se o funcionário existe
       const worker = await Worker.findById(id);
       
       if (!worker) {
@@ -183,6 +191,7 @@ class WorkerService {
         date: new Date()
       });
       
+      // Verificar se já existe um registro de entrada sem saída
       await worker.save();
       
       return worker;
@@ -199,6 +208,7 @@ class WorkerService {
         throw ApiError.badRequest('ID inválido');
       }
       
+      // Verificar se o funcionário existe
       const worker = await Worker.findById(id);
       
       if (!worker) {
@@ -226,6 +236,8 @@ class WorkerService {
           leaveTime: new Date(),
           date: new Date()
         });
+
+        // Salvar o novo log
         await worker.save();
       }
       
@@ -243,6 +255,7 @@ class WorkerService {
         throw ApiError.badRequest('ID inválido');
       }
       
+      // Verificar se o funcionário existe
       const worker = await Worker.findById(id);
       
       if (!worker) {
@@ -255,6 +268,7 @@ class WorkerService {
         date: new Date()
       });
       
+      // Verificar se já existe um registro de ausência
       await worker.save();
       
       return worker;
@@ -300,6 +314,7 @@ class WorkerService {
       // Adicionar opção para todos os departamentos
       formattedDepartments.unshift({ value: 'all', label: 'Todos os departamentos' });
       
+      // Adicionar opção para sem departamento
       return formattedDepartments;
     } catch (error) {
       logger.error('Erro no serviço ao buscar departamentos:', error);

@@ -42,7 +42,7 @@ export interface IWorker extends Document {
   updatedAt: Date;
 }
 
-// Schema do Worker
+// Schema do Workers
 const WorkerSchema = new Schema<IWorker>(
   {
     name: { type: String, required: true },

@@ -29,6 +29,7 @@ const startServer = async () => {
       });
     });
 
+    // Tratamento de encerramento do processo
     process.on('SIGTERM', () => {
       logger.info('SIGTERM recebido. Encerrando graciosamente.');
       server.close(() => {

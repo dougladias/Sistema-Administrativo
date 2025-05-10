@@ -4,9 +4,9 @@ import { createLogger } from '../../../shared/src/utils/logger';
 
 const logger = createLogger({ serviceName: 'worker-service', customMetadata: { module: 'database' } });
 
-/**
- * Inicializa a conexão com o banco de dados
- */
+
+// Inicializa a conexão com o banco de dados
+
 export async function connectDB(): Promise<void> {
   try {
     // Verifica se já está conectado
@@ -32,9 +32,8 @@ export async function connectDB(): Promise<void> {
   }
 }
 
-/**
- * Encerra a conexão com o banco de dados
- */
+
+// Encerra a conexão com o banco de dados
 export async function closeDB(): Promise<void> {
   try {
     logger.info('Encerrando conexão com o MongoDB...');
@@ -46,9 +45,7 @@ export async function closeDB(): Promise<void> {
   }
 }
 
-/**
- * Configura handlers para encerramento da conexão com o banco de dados
- */
+// Configura handlers para encerramento da conexão com o banco de dados
 function setupShutdownHandlers(): void {
   // Já tratados no arquivo principal
   // Aqui adicionamos apenas por segurança extra
@@ -70,9 +67,7 @@ function setupShutdownHandlers(): void {
   }
 }
 
-/**
- * Mascara a URI do MongoDB para log seguro (esconde senha)
- */
+// Mascara a URI do MongoDB para log seguro (esconde senha)
 function maskUri(uri: string): string {
   if (!uri) return 'undefined';
   try {
@@ -86,6 +81,7 @@ function maskUri(uri: string): string {
   }
 }
 
+// Exporta as funções de conexão e desconexão
 export default {
   connectDB,
   closeDB,

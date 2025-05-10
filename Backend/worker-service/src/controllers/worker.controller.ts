@@ -1,6 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
 import workerService from '../services/worker.service';
 
+
+// Controlador para gerenciar operações relacionadas a funcionários.
+// Este controlador lida com as requisições HTTP e interage com o serviço de funcionários.
 export const getDepartments = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.getDepartments();
@@ -10,6 +13,7 @@ export const getDepartments = async (req: Request, res: Response, next: NextFunc
   }
 };
 
+// Controladores para operações CRUD e controle de ponto
 export const findAll = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.findAll(req.query);
@@ -19,6 +23,7 @@ export const findAll = async (req: Request, res: Response, next: NextFunction) =
   }
 };
 
+// Controlador para buscar um funcionário específico pelo ID
 export const findById = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.findById(req.params.id);
@@ -29,6 +34,7 @@ export const findById = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
+// Controlador para criar um novo funcionário
 export const create = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.create(req.body);
@@ -38,6 +44,7 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// Controlador para atualizar um funcionário existente
 export const update = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.update(req.params.id, req.body);
@@ -48,6 +55,7 @@ export const update = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// Controlador para remover um funcionário
 export const remove = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.delete(req.params.id);
@@ -58,6 +66,7 @@ export const remove = async (req: Request, res: Response, next: NextFunction) =>
   }
 };
 
+// Controladores para registrar ponto de entrada, saída e ausência
 export const registerEntry = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.registerEntry(req.params.id);
@@ -68,6 +77,7 @@ export const registerEntry = async (req: Request, res: Response, next: NextFunct
   }
 };
 
+// Controlador para registrar a saída de um funcionário
 export const registerExit = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.registerExit(req.params.id);
@@ -78,6 +88,7 @@ export const registerExit = async (req: Request, res: Response, next: NextFuncti
   }
 };
 
+// Controlador para registrar a ausência de um funcionário
 export const registerAbsence = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const result = await workerService.registerAbsence(req.params.id);

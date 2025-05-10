@@ -1,4 +1,3 @@
-
 // Códigos de erro padronizados
 export enum ErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
@@ -34,6 +33,7 @@ export class ApiError extends Error {
   readonly details?: any;
   readonly isOperational: boolean;
 
+// Construtor da classe ApiError
   constructor(
     message: string,
     statusCode: number = 500,
@@ -52,9 +52,9 @@ export class ApiError extends Error {
     Error.captureStackTrace(this, this.constructor);
   }
 
-  /**
-   * Cria uma resposta padronizada de erro
-   */
+  
+   // Cria uma resposta padronizada de erro
+   
   toResponse() {
     return {
       success: false,
@@ -67,9 +67,7 @@ export class ApiError extends Error {
     };
   }
 
-  /**
-   * Factory para criar erros específicos
-   */
+  // Métodos estáticos para criar instâncias de ApiError com códigos e mensagens específicas
   static validation(message: string = 'Erro de validação', details?: any): ApiError {
     return new ApiError(
       message, 
@@ -79,6 +77,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de autenticação
   static authentication(message: string = 'Não autenticado'): ApiError {
     return new ApiError(
       message,
@@ -87,6 +86,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de autorização
   static authorization(message: string = 'Não autorizado'): ApiError {
     return new ApiError(
       message,
@@ -95,6 +95,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de recurso não encontrado
   static notFound(message: string = 'Recurso não encontrado'): ApiError {
     return new ApiError(
       message,
@@ -103,6 +104,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de recurso já existente
   static conflict(message: string = 'Recurso já existe', details?: any): ApiError {
     return new ApiError(
       message,
@@ -112,6 +114,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de requisição inválida
   static badRequest(message: string = 'Requisição inválida', details?: any): ApiError {
     return new ApiError(
       message,
@@ -121,6 +124,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro interno do servidor
   static internal(message: string = 'Erro interno do servidor', details?: any): ApiError {
     return new ApiError(
       message,
@@ -131,6 +135,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de serviço temporariamente indisponível
   static serviceUnavailable(message: string = 'Serviço temporariamente indisponível'): ApiError {
     return new ApiError(
       message,
@@ -139,6 +144,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de acesso a dados
   static dataAccess(message: string = 'Erro ao acessar dados', details?: any): ApiError {
     return new ApiError(
       message,
@@ -148,6 +154,7 @@ export class ApiError extends Error {
     );
   }
 
+  // Método para criar erro de limite de requisições excedido
   static rateLimit(message: string = 'Limite de requisições excedido'): ApiError {
     return new ApiError(
       message,
@@ -157,9 +164,7 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * Extrai mensagens de erro de diferentes formatos de erro
- */
+// Função para extrair mensagem de erro
 export function extractErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
     return error.message;
@@ -176,9 +181,7 @@ export function extractErrorMessage(error: unknown): string {
   return 'Erro desconhecido';
 }
 
-/**
- * Converte erros específicos do Mongoose para ApiError
- */
+// Função para tratar erros do Mongoose
 export function handleMongooseError(error: any): ApiError {
   // Erro de validação do Mongoose
   if (error.name === 'ValidationError') {
@@ -210,9 +213,7 @@ export function handleMongooseError(error: any): ApiError {
   return ApiError.dataAccess(error.message);
 }
 
-/**
- * Função para tratamento unificado de erros
- */
+// Função para lidar com erros genéricos
 export function handleError(error: unknown): ApiError {
   // Se já for um ApiError, retorna diretamente
   if (error instanceof ApiError) {
@@ -230,6 +231,7 @@ export function handleError(error: unknown): ApiError {
     return ApiError.authentication('Token inválido');
   }
   
+  // Erros de token expirado
   if (error instanceof Error && error.name === 'TokenExpiredError') {
     return ApiError.authentication('Token expirado');
   }
@@ -248,9 +250,7 @@ export function handleError(error: unknown): ApiError {
   );
 }
 
-/**
- * Formata detalhes de erro de validação do Zod
- */
+// Função para formatar erros do Zod
 export function formatZodError(error: any): Record<string, string> {
   const formattedErrors: Record<string, string> = {};
   
@@ -264,9 +264,7 @@ export function formatZodError(error: any): Record<string, string> {
   return formattedErrors;
 }
 
-/**
- * Verifica se um erro é seguro para enviar ao cliente
- */
+// Função para verificar se o erro é seguro para ser exposto ao cliente
 export function isSafeError(error: ApiError): boolean {
   return error.isOperational;
 }
