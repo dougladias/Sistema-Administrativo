@@ -1,17 +1,26 @@
 import app from './app';
-import connectDB from './config/database';
-import logger from './config/logger';
+import { connectDB } from './config/database';
+import { createLogger } from '../../shared/src/utils/logger';
 import { env } from './config/env';
 
-// Iniciar o servidor
+// Inicializar logger
+const logger = createLogger({ serviceName: 'auth-service' });
+
+// Porta do servidor
+const PORT = env.port;
+
+/**
+ * Iniciar o servidor
+ */
 const startServer = async () => {
   try {
     // Conectar ao banco de dados
     await connectDB();
 
     // Iniciar o servidor Express
-    const server = app.listen(env.port, () => {
-      logger.info(`Auth service running on port ${env.port} in ${env.nodeEnv} mode`);
+    const server = app.listen(PORT, () => {
+      logger.info(`Auth Service rodando na porta ${PORT} em modo ${env.nodeEnv}`);
+      logger.info(`URL da API: http://localhost:${PORT}/api/auth`);
     });
 
     // Tratamento de erros não tratados
@@ -23,25 +32,28 @@ const startServer = async () => {
       });
     });
 
+    // Tratamento de encerramento do processo
     process.on('SIGTERM', () => {
-      logger.info('SIGTERM received. Shutting down gracefully');
+      logger.info('SIGTERM recebido. Encerrando graciosamente.');
       server.close(() => {
-        logger.info('Server closed');
+        logger.info('Servidor encerrado.');
         process.exit(0);
       });
     });
 
+    // Tratamento de interrupção do processo
     process.on('SIGINT', () => {
-      logger.info('SIGINT received. Shutting down gracefully');
+      logger.info('SIGINT recebido. Encerrando graciosamente.');
       server.close(() => {
-        logger.info('Server closed');
+        logger.info('Servidor encerrado.');
         process.exit(0);
       });
     });
   } catch (error) {
-    logger.error('Failed to start server:', error);
+    logger.error('Falha ao iniciar o servidor:', error);
     process.exit(1);
   }
 };
 
+// Iniciar o servidor
 startServer();

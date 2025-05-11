@@ -20,7 +20,7 @@ const envSchema = z.object({
   JWT_EXPIRATION: z.string().default('1d'),
   
   // URLs dos Serviços
-  AUTH_SERVICE_URL: z.string().default('http://localhost:4002'),
+  AUTH_SERVICE_URL: z.string().default('http://localhost:4010'),
   WORKER_SERVICE_URL: z.string().default('http://localhost:4014'),
   
   

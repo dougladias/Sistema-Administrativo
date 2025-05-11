@@ -1,122 +1,215 @@
 import { Request, Response, NextFunction } from 'express';
-import authService, { TokenPayload } from '../services/authService';
-import { UserRole } from '../utils/types';
-import ApiError from '../utils/apiError';
-import logger from '../config/logger';
+import authService from '../services/authService';
+import { createLogger } from '../../../shared/src/utils/logger';
+import { ApiError } from '../../../shared/src/utils/apiError';
+import { UserStatus, UserRole } from '../../../shared/src/models/user.model'; 
 
-// Registro de usuário
-export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+const logger = createLogger({ 
+  serviceName: 'auth-service',
+  customMetadata: { module: 'auth-controller' } 
+});
+
+/**
+ * Registra um novo usuário
+ */
+export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, role } = req.body;
-    
-    // Validar os dados de entrada
-    if (!name || !email || !password) {
-      throw new ApiError('Nome, email e senha são obrigatórios', 400);
-    }
-    
-    // Verificar role (se fornecido)
-    if (role && !Object.values(UserRole).includes(role)) {
-      throw new ApiError('Role inválido', 400);
-    }
-    
-    // Registrar o usuário
-    const result = await authService.register(name, email, password, role);
-    
+    const result = await authService.register({
+      name,
+      email,
+      password,
+      role: role || UserRole.ASSISTENTE, // Add the required role property
+      status: UserStatus.ACTIVE, // Corrija aqui
+      permissions: [],   // Default empty permissions for a new user
+      refreshTokens: [], // Refresh tokens are managed by the system, init as empty
+      loginHistory: []   // Login history is managed by the system, init as empty
+    });
     res.status(201).json(result);
   } catch (error) {
-    logger.error('Erro no registro de usuário:', error);
+    logger.error('Erro ao registrar usuário:', error);
     next(error);
   }
 };
 
-// Login de usuário
-export const login = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+/**
+ * Autentica um usuário
+ */
+export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    
-    // Validar os dados de entrada
-    if (!email || !password) {
-      throw new ApiError('Email e senha são obrigatórios', 400);
-    }
-    
-    // Realizar login
     const result = await authService.login(email, password);
-    
     res.status(200).json(result);
   } catch (error) {
-    logger.error('Erro no login de usuário:', error);
+    logger.error('Erro ao autenticar usuário:', error);
     next(error);
   }
 };
 
-// Logout de usuário
-export const logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+/**
+ * Faz logout de um usuário (revogando o refresh token)
+ */
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    
-    if (!userId) {
-      throw new ApiError('Usuário não autenticado', 401);
+    // Verificar se o usuário está autenticado
+    if (!req.user || !req.user.id) {
+      throw ApiError.authentication('Usuário não autenticado');
     }
     
-    await authService.logout(userId);
-    
-    res.status(200).json({ message: 'Logout realizado com sucesso' });
-  } catch (error) {
-    logger.error('Erro no logout de usuário:', error);
-    next(error);
-  }
-};
-
-// Refresh token
-export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
     const { refreshToken } = req.body;
-    
     if (!refreshToken) {
-      throw new ApiError('Refresh token é obrigatório', 400);
+      throw ApiError.badRequest('Refresh token é obrigatório');
     }
     
-    const tokens = await authService.refreshToken(refreshToken);
+    await authService.logout(req.user.id, refreshToken); // Pass userId and refreshToken as required
     
-    res.status(200).json(tokens);
+    // If authService.logout completes without error, assume success
+    res.status(200).json({ success: true, message: 'Logout realizado com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao fazer logout:', error);
+    next(error);
+  }
+};
+
+/**
+ * Atualiza tokens usando refresh token
+ */
+export const refreshToken = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await authService.refreshToken(req.body);
+    res.status(200).json(result);
   } catch (error) {
     logger.error('Erro ao atualizar token:', error);
     next(error);
   }
 };
 
-// Obter usuário autenticado
-export const getCurrentUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+/**
+ * Obtém perfil do usuário autenticado
+ */
+export const getCurrentUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const userId = req.user?.id;
-    
-    if (!userId) {
-      throw new ApiError('Usuário não autenticado', 401);
+    // Verificar se o usuário está autenticado
+    if (!req.user || !req.user.id) {
+      throw ApiError.authentication('Usuário não autenticado');
     }
     
-    const user = await authService.getUserById(userId);
-    
+    const user = await authService.getUserById(req.user.id);
     res.status(200).json(user);
   } catch (error) {
-    logger.error('Erro ao obter usuário atual:', error);
+    logger.error('Erro ao obter perfil do usuário:', error);
     next(error);
   }
 };
 
-// Validar token
-export const validateToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+/**
+ * Atualiza perfil do usuário
+ */
+export const updateUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Verificar se o usuário está autenticado
+    if (!req.user || !req.user.id) {
+      throw ApiError.authentication('Usuário não autenticado');
+    }
+    
+    const user = await (authService as any).updateUser(req.user.id, req.body);
+    res.status(200).json(user);
+  } catch (error) {
+    logger.error('Erro ao atualizar usuário:', error);
+    next(error);
+  }
+};
+
+/**
+ * Atualiza senha do usuário
+ */
+export const updatePassword = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    // Verificar se o usuário está autenticado
+    if (!req.user || !req.user.id) {
+      throw ApiError.authentication('Usuário não autenticado');
+    }
+    
+    await (authService as any).updatePassword(req.user.id, req.body);
+    res.status(200).json({ success: true, message: 'Senha atualizada com sucesso' });
+  } catch (error) {
+    logger.error('Erro ao atualizar senha:', error);
+    next(error);
+  }
+};
+
+/**
+ * Valida um token JWT
+ */
+export const validateToken = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { token } = req.body;
     
     if (!token) {
-      throw new ApiError('Token é obrigatório', 400);
+      throw ApiError.badRequest('Token é obrigatório');
     }
     
     const result = await authService.validateToken(token);
-    
     res.status(200).json(result);
   } catch (error) {
     logger.error('Erro ao validar token:', error);
+    next(error);
+  }
+};
+
+/**
+ * Obter todos os usuários (apenas para administradores)
+ */
+export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const users = await (authService as any).findAllUsers(req.query);
+    res.status(200).json(users);
+  } catch (error) {
+    logger.error('Erro ao obter usuários:', error);
+    next(error);
+  }
+};
+
+/**
+ * Obter usuário por ID (apenas para administradores)
+ */
+export const getUserById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await authService.getUserById(req.params.id);
+    res.status(200).json(user);
+  } catch (error) {
+    logger.error(`Erro ao obter usuário ID ${req.params.id}:`, error);
+    next(error);
+  }
+};
+
+/**
+ * Atualizar usuário por ID (apenas para administradores)
+ */
+export const updateUserById = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const user = await (authService as any).updateUser(req.params.id, req.body);
+    res.status(200).json(user);
+  } catch (error) {
+    logger.error(`Erro ao atualizar usuário ID ${req.params.id}:`, error);
+    next(error);
+  }
+};
+
+/**
+ * Excluir usuário (apenas para administradores)
+ */
+export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const result = await (authService as any).deleteUser(req.params.id);
+    
+    if (result) {
+      res.status(200).json({ success: true, message: 'Usuário excluído com sucesso' });
+    } else {
+      throw ApiError.notFound('Usuário não encontrado');
+    }
+  } catch (error) {
+    logger.error(`Erro ao excluir usuário ID ${req.params.id}:`, error);
     next(error);
   }
 };
