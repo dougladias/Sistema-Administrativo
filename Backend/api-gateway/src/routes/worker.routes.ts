@@ -29,7 +29,7 @@ router.get('/', async (req, res, next) => {
 // Buscar departamentos
 router.get('/departments', async (req, res, next) => {
   try {
-    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/workers/departments`);
+    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/api/workers/departments`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -40,7 +40,7 @@ router.get('/departments', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/workers/${id}`);
+    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/api/workers/${id}`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -50,7 +50,7 @@ router.get('/:id', async (req, res, next) => {
 // Criar worker
 router.post('/', async (req, res, next) => {
   try {
-    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/workers`, req.body);
+    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/api/workers`, req.body);
     res.status(201).json(result);
   } catch (error) {
     next(error);
@@ -61,7 +61,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.put(`${env.WORKER_SERVICE_URL}/workers/${id}`, req.body);
+    const result = await httpClient.put(`${env.WORKER_SERVICE_URL}/api/workers/${id}`, req.body);
     res.json(result);
   } catch (error) {
     next(error);
@@ -72,7 +72,7 @@ router.put('/:id', async (req, res, next) => {
 router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.delete(`${env.WORKER_SERVICE_URL}/workers/${id}`);
+    const result = await httpClient.delete(`${env.WORKER_SERVICE_URL}/api/workers/${id}`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -83,7 +83,7 @@ router.delete('/:id', async (req, res, next) => {
 router.post('/:id/entry', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/workers/${id}/entry`);
+    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/api/workers/${id}/entry`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -94,7 +94,7 @@ router.post('/:id/entry', async (req, res, next) => {
 router.post('/:id/exit', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/workers/${id}/exit`);
+    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/api/workers/${id}/exit`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -105,7 +105,7 @@ router.post('/:id/exit', async (req, res, next) => {
 router.post('/:id/absence', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/workers/${id}/absence`);
+    const result = await httpClient.post(`${env.WORKER_SERVICE_URL}/api/workers/${id}/absence`);
     res.json(result);
   } catch (error) {
     next(error);
@@ -138,7 +138,7 @@ router.get('/debug/connection', async (req, res) => {
     // Testar rota de API
     let apiCheck;
     try {
-      const url = `${env.WORKER_SERVICE_URL}/workers`;
+      const url = `${env.WORKER_SERVICE_URL}/api/workers`;
       const apiResponse = await axios.get(url, { timeout: 3000 });
       apiCheck = {
         url,

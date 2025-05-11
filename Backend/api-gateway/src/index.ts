@@ -1,6 +1,7 @@
 import { createApp } from './app';
 import { env } from './config/env';
 import { logger } from './config/logger';
+import { markServicesAsActive } from './services/service-registry';
 
 // Validar configurações críticas
 function validateConfig() {
@@ -19,6 +20,18 @@ validateConfig();
 
 // Criar a aplicação
 const app = createApp();
+
+// Marcar serviços como ativos em ambiente de desenvolvimento
+if (env.NODE_ENV === 'development') {
+  setTimeout(() => {
+    try {
+      markServicesAsActive();
+      logger.info('Todos os serviços foram marcados como ativos para ambiente de desenvolvimento');
+    } catch (error) {
+      logger.error('Erro ao marcar serviços como ativos:', error);
+    }
+  }, 3000); // Esperar 3 segundos para garantir que o registro foi inicializado
+}
 
 // Definir a porta
 const PORT = env.PORT || 3005;

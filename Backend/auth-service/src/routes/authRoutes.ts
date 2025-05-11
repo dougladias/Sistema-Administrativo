@@ -18,6 +18,7 @@ import {
   RefreshTokenRequestSchema 
 } from '../../../shared/src/schemas/user.schema';
 import { z } from 'zod';
+import { env } from '../config/env';
 
 const router = Router();
 
@@ -32,6 +33,11 @@ const MongoIdSchema = z.object({
     message: "ID inválido"
   })
 });
+
+// Rota de desenvolvimento para listar usuários (apenas em ambiente de desenvolvimento)
+if (env.nodeEnv === 'development') {
+  router.get('/dev/users', authController.getUsers);
+}
 
 // =================================================
 // Rotas públicas (não requerem autenticação)

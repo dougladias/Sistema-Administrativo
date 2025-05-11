@@ -14,41 +14,85 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction) {
-  try {
-    const authHeader = req.headers.authorization;
-    
-    if (!authHeader) {
-      return res.status(401).json({ message: 'Token de autenticação não fornecido' });
+export function authenticate(options: { optional?: boolean } = {}) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const authHeader = req.headers.authorization;
+      
+      if (!authHeader) {
+        if (options.optional) {
+          return next(); // Continuar sem usuário se for opcional
+        }
+        return res.status(401).json({ 
+          success: false,
+          error: {
+            code: 'AUTHENTICATION_ERROR',
+            message: 'Token de autenticação não fornecido'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      const parts = authHeader.split(' ');
+      
+      if (parts.length !== 2 || parts[0] !== 'Bearer') {
+        return res.status(401).json({ 
+          success: false,
+          error: {
+            code: 'AUTHENTICATION_ERROR',
+            message: 'Formato de token inválido'
+          },
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      const token = parts[1];
+      const decoded = verifyToken(token);
+      
+      req.user = decoded;
+      next();
+    } catch (error) {
+      if (options.optional) {
+        return next(); // Continuar sem usuário se for opcional
+      }
+      
+      return res.status(401).json({ 
+        success: false,
+        error: {
+          code: 'AUTHENTICATION_ERROR',
+          message: 'Token inválido ou expirado'
+        },
+        timestamp: new Date().toISOString()
+      });
     }
-    
-    const parts = authHeader.split(' ');
-    
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      return res.status(401).json({ message: 'Formato de token inválido' });
-    }
-    
-    const token = parts[1];
-    const decoded = verifyToken(token);
-    
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Token inválido ou expirado' });
-  }
+  };
 }
 
 // Middleware para verificar papéis/permissões
 export function authorize(roles: string[]) {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ message: 'Usuário não autenticado' });
+      return res.status(401).json({ 
+        success: false,
+        error: {
+          code: 'AUTHENTICATION_ERROR',
+          message: 'Usuário não autenticado'
+        },
+        timestamp: new Date().toISOString()
+      });
     }
     
     if (roles.includes(req.user.role)) {
       next();
     } else {
-      return res.status(403).json({ message: 'Acesso não autorizado' });
+      return res.status(403).json({ 
+        success: false,
+        error: {
+          code: 'AUTHORIZATION_ERROR',
+          message: 'Acesso não autorizado'
+        },
+        timestamp: new Date().toISOString()
+      });
     }
   };
 }

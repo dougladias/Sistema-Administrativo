@@ -1,14 +1,13 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
-import { signOut } from 'next-auth/react';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { authService } from './authService';
 
-// Configurações do API Gateway
-const API_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3005/api';
-const TIMEOUT = 15000; // 15 segundos
+// URL do API Gateway
+const API_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL || 'http://localhost:3005';
 
 // Criar instância do Axios com configurações padrão
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_URL,
-  timeout: TIMEOUT,
+  timeout: 15000, // 15 segundos
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,13 +38,13 @@ const processQueue = (error: any, token: string | null = null) => {
 // Interceptor para adicionar token em cada requisição
 apiClient.interceptors.request.use(
   (config) => {
-    // Obtenha o token da sessionStorage ou localStorage
-    const token = typeof window !== 'undefined' ? 
-      sessionStorage.getItem('accessToken') || localStorage.getItem('accessToken') : null;
-      
+    // Obter token de acesso
+    const token = authService.getAccessToken();
+    
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
     return config;
   },
   (error) => Promise.reject(error)
@@ -54,7 +53,7 @@ apiClient.interceptors.request.use(
 // Interceptor para tratamento de erros
 apiClient.interceptors.response.use(
   (response) => response,
-  async (error: AxiosError) => {
+  async (error) => {
     const originalRequest = error.config;
     
     // Se não temos config ou já tentamos refresh, rejeitar
@@ -63,7 +62,8 @@ apiClient.interceptors.response.use(
     }
 
     // Se for erro 401 (não autorizado) e não for uma tentativa de refresh
-    if (error.response?.status === 401 && originalRequest.url !== '/auth/refresh') {
+    if (error.response?.status === 401 && 
+        !originalRequest.url?.includes('/auth/refresh-token')) {
       // Marcar que esta requisição já passou por retry
       (originalRequest as any)._retry = true;
       
@@ -77,17 +77,10 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
       
       try {
-        // Chamar nossa API de refresh token
-        const response = await axios.post('/api/auth/refresh');
+        // Tentar atualizar o token
+        const newToken = await authService.refreshToken();
         
-        if (response.data.success) {
-          const newToken = response.data.tokens.accessToken;
-          
-          // Salvar o novo token
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('accessToken', newToken);
-          }
-          
+        if (newToken) {
           // Atualizar o header da requisição original
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
           
@@ -100,15 +93,15 @@ apiClient.interceptors.response.use(
           // Se o refresh falhou, processar a fila com erro
           processQueue(new Error('Falha ao renovar token'));
           
-          // Forçar logout
-          await handleAuthError();
+          // Fazer logout e redirecionar para página de login
+          authService.logout();
           
           return Promise.reject(new Error('Sessão expirada'));
         }
       } catch (refreshError) {
         // Se falhar na renovação do token, fazer logout
         processQueue(refreshError);
-        await handleAuthError();
+        authService.logout();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -118,18 +111,6 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-// Função para lidar com erros de autenticação
-async function handleAuthError() {
-  if (typeof window !== 'undefined') {
-    // Limpar tokens
-    localStorage.removeItem('accessToken');
-    sessionStorage.removeItem('accessToken');
-    
-    // Usar Next-Auth para fazer logout
-    await signOut({ redirect: true, callbackUrl: '/auth/login' });
-  }
-}
 
 // Métodos para simplificar as chamadas HTTP
 export const api = {

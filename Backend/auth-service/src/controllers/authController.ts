@@ -15,18 +15,22 @@ const logger = createLogger({
 export const register = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { name, email, password, role } = req.body;
+    console.log("Dados recebidos no controller register:", { name, email, role });
+    
     const result = await authService.register({
       name,
       email,
       password,
-      role: role || UserRole.ASSISTENTE, // Add the required role property
-      status: UserStatus.ACTIVE, // Corrija aqui
-      permissions: [],   // Default empty permissions for a new user
-      refreshTokens: [], // Refresh tokens are managed by the system, init as empty
-      loginHistory: []   // Login history is managed by the system, init as empty
+      role: role || UserRole.ASSISTENTE,
+      status: UserStatus.ACTIVE,
+      permissions: [],
+      refreshTokens: [],
+      loginHistory: []
     });
+    
     res.status(201).json(result);
   } catch (error) {
+    console.error("Erro detalhado no controller register:", error);
     logger.error('Erro ao registrar usuário:', error);
     next(error);
   }
@@ -38,9 +42,12 @@ export const register = async (req: Request, res: Response, next: NextFunction) 
 export const login = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { email, password } = req.body;
-    const result = await authService.login(email, password);
+    console.log("Dados recebidos no controller login:", { email });
+    
+    const result = await authService.login(email, password, req);
     res.status(200).json(result);
   } catch (error) {
+    console.error("Erro detalhado no controller login:", error);
     logger.error('Erro ao autenticar usuário:', error);
     next(error);
   }
@@ -61,7 +68,7 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
       throw ApiError.badRequest('Refresh token é obrigatório');
     }
     
-    await authService.logout(req.user.id, refreshToken); // Pass userId and refreshToken as required
+    await authService.logout(req.user.id, refreshToken);
     
     // If authService.logout completes without error, assume success
     res.status(200).json({ success: true, message: 'Logout realizado com sucesso' });
@@ -112,7 +119,7 @@ export const updateUser = async (req: Request, res: Response, next: NextFunction
       throw ApiError.authentication('Usuário não autenticado');
     }
     
-    const user = await (authService as any).updateUser(req.user.id, req.body);
+    const user = await authService.updateUser(req.user.id, req.body);
     res.status(200).json(user);
   } catch (error) {
     logger.error('Erro ao atualizar usuário:', error);
@@ -130,7 +137,7 @@ export const updatePassword = async (req: Request, res: Response, next: NextFunc
       throw ApiError.authentication('Usuário não autenticado');
     }
     
-    await (authService as any).updatePassword(req.user.id, req.body);
+    await authService.updatePassword(req.user.id, req.body);
     res.status(200).json({ success: true, message: 'Senha atualizada com sucesso' });
   } catch (error) {
     logger.error('Erro ao atualizar senha:', error);
@@ -162,7 +169,7 @@ export const validateToken = async (req: Request, res: Response, next: NextFunct
  */
 export const getUsers = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const users = await (authService as any).findAllUsers(req.query);
+    const users = await authService.findAllUsers(req.query);
     res.status(200).json(users);
   } catch (error) {
     logger.error('Erro ao obter usuários:', error);
@@ -188,7 +195,7 @@ export const getUserById = async (req: Request, res: Response, next: NextFunctio
  */
 export const updateUserById = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const user = await (authService as any).updateUser(req.params.id, req.body);
+    const user = await authService.updateUser(req.params.id, req.body);
     res.status(200).json(user);
   } catch (error) {
     logger.error(`Erro ao atualizar usuário ID ${req.params.id}:`, error);
@@ -201,7 +208,7 @@ export const updateUserById = async (req: Request, res: Response, next: NextFunc
  */
 export const deleteUser = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const result = await (authService as any).deleteUser(req.params.id);
+    const result = await authService.deleteUser(req.params.id);
     
     if (result) {
       res.status(200).json({ success: true, message: 'Usuário excluído com sucesso' });

@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { signIn } from 'next-auth/react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Eye, EyeOff, Mail, Lock, AlertCircle } from 'lucide-react'
 import dynamic from 'next/dynamic'
+import { authService } from '@/services/authService'
 
 // Importar Lottie dinamicamente para evitar problemas de SSR
 const Lottie = dynamic(() => import('lottie-react'), { ssr: false })
@@ -23,8 +23,13 @@ export default function LoginPage() {
   const [isClient, setIsClient] = useState(false)
   
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard'
+
+  // Verificar se já está autenticado
+  useEffect(() => {
+    if (authService.isAuthenticated()) {
+      router.push('/dashboard');
+    }
+  }, [router]);
 
   // Carregar a animação do logotipo quando componente montar
   useEffect(() => {
@@ -47,28 +52,53 @@ export default function LoginPage() {
       });
   }, []);
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+  interface LoginError {
+    response?: {
+      status: number;
+      data?: {
+        error?: {
+          message?: string;
+        };
+      };
+    };
+  }
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
 
     try {
-      const result = await signIn('credentials', {
-        redirect: false,
-        email,
-        password
-      });
-
-      if (result?.error) {
-        setError(result.error);
-        setIsLoading(false);
+      // Usar o serviço de autenticação direta
+      await authService.login(email, password);
+      
+      // Redirecionar para o dashboard em caso de sucesso
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      
+      // Tratar diferentes tipos de erro
+      const typedError = error as LoginError;
+      if (typedError.response) {
+        // Erro da API
+        const status = typedError.response.status;
+        
+        if (status === 401) {
+          setError('Credenciais inválidas. Verifique seu email e senha.');
+        } else if (status === 400) {
+          setError('Dados de login inválidos. Verifique as informações digitadas.');
+        } else if (status === 404) {
+          setError('Usuário não encontrado com este email.');
+        } else if (status === 500) {
+          setError('Erro no servidor. Por favor, tente novamente mais tarde.');
+        } else {
+          setError(`Erro ao fazer login: ${typedError.response.data?.error?.message || 'Tente novamente'}`);
+        }
       } else {
-        // Login bem-sucedido
-        router.push(callbackUrl);
+        // Erro de rede ou outro
+        setError('Falha ao conectar com o servidor. Verifique sua conexão.');
       }
-    } catch (err) {
-      console.error('Erro ao fazer login:', err);
-      setError('Ocorreu um erro ao tentar fazer login. Tente novamente mais tarde.');
+    } finally {
       setIsLoading(false);
     }
   }

@@ -1,4 +1,4 @@
-// Backend/auth-service/src/services/auth.service.ts
+// Backend/auth-service/src/services/authService.ts
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { createUserModel, IUser, UserRole, UserStatus } from '../../../shared/src/models/user.model';
 import { 
@@ -55,26 +55,38 @@ class AuthService {
    */
   async register(userData: UserCreate): Promise<AuthResponse> {
     try {
+      console.log('Dados recebidos para registro:', JSON.stringify(userData));
+      
       // Validar dados usando schema compartilhado
+      console.log('Validando dados...');
       const validatedData = validateUserCreate(userData);
+      console.log('Dados validados com sucesso');
       
       // Verificar se o usuário já existe
+      console.log('Verificando se usuário já existe...');
       const existingUser = await User.findOne({ email: validatedData.email });
+      console.log('Verificação concluída, existingUser:', existingUser ? 'Encontrado' : 'Não encontrado');
+      
       if (existingUser) {
         throw ApiError.conflict('Um usuário com este email já existe');
       }
       
       // Criar o usuário
+      console.log('Criando novo usuário...');
       const user = new User(validatedData);
       
       // Gerar tokens
+      console.log('Gerando tokens...');
       const { accessToken, refreshToken } = this.generateTokens(user);
       
       // Adicionar refresh token ao usuário
+      console.log('Adicionando refresh token...');
       await user.addRefreshToken(refreshToken);
       
       // Salvar o usuário
+      console.log('Salvando usuário...');
       await user.save();
+      console.log('Usuário salvo com sucesso');
       
       return {
         user: {
@@ -90,6 +102,7 @@ class AuthService {
         }
       };
     } catch (error) {
+      console.error('ERRO DETALHADO:', error);
       logger.error('Erro ao registrar usuário:', error);
       throw error;
     }
@@ -98,37 +111,45 @@ class AuthService {
   /**
    * Autentica um usuário
    */
-  async login(loginData: LoginRequest, req?: Request): Promise<AuthResponse> {
+  async login(email: string, password: string, req?: Request): Promise<AuthResponse> {
     try {
-      // Validar dados
-      const validatedData = validateLogin(loginData);
+      console.log('Iniciando login com email:', email);
       
       // Buscar usuário
-      const user = await User.findOne({ email: validatedData.email });
+      console.log('Buscando usuário...');
+      const user = await User.findOne({ email });
       if (!user) {
+        console.log('Usuário não encontrado');
         // Registrar tentativa de login mal-sucedida
         this.recordLoginAttempt(null, req, false);
         throw ApiError.authentication('Credenciais inválidas');
       }
+      console.log('Usuário encontrado');
       
       // Verificar se a conta está ativa
       if (user.status !== UserStatus.ACTIVE) {
+        console.log('Conta não está ativa');
         this.recordLoginAttempt(user, req, false);
         throw ApiError.authentication('Conta inativa ou bloqueada');
       }
       
       // Verificar senha
-      const isPasswordValid = await user.comparePassword(validatedData.password);
+      console.log('Verificando senha...');
+      const isPasswordValid = await user.comparePassword(password);
       if (!isPasswordValid) {
+        console.log('Senha inválida');
         // Registrar tentativa de login mal-sucedida
         this.recordLoginAttempt(user, req, false);
         throw ApiError.authentication('Credenciais inválidas');
       }
+      console.log('Senha válida');
       
       // Gerar tokens
+      console.log('Gerando tokens...');
       const { accessToken, refreshToken } = this.generateTokens(user);
       
       // Adicionar refresh token ao usuário
+      console.log('Adicionando refresh token...');
       await user.addRefreshToken(refreshToken);
       
       // Atualizar último login
@@ -138,7 +159,9 @@ class AuthService {
       this.recordLoginAttempt(user, req, true);
       
       // Salvar as alterações
+      console.log('Salvando alterações...');
       await user.save();
+      console.log('Login bem-sucedido');
       
       return {
         user: {
@@ -154,6 +177,7 @@ class AuthService {
         }
       };
     } catch (error) {
+      console.error('ERRO DETALHADO NO LOGIN:', error);
       logger.error('Erro ao fazer login:', error);
       throw error;
     }
@@ -423,8 +447,7 @@ class AuthService {
       expiresIn: env.jwtExpiresIn
     } as SignOptions);
     
-    const refreshToken = jwt.sign(payload, env.jwtRefreshSecret as Secret, {
-      expiresIn: env.jwtRefreshExpiresIn
+    const refreshToken = jwt.sign(payload, env.jwtRefreshSecret as Secret, {expiresIn: env.jwtRefreshExpiresIn
     } as SignOptions);
     
     return { accessToken, refreshToken };

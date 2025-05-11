@@ -55,7 +55,7 @@ export interface IUser extends Document {
   
   // Métodos
   comparePassword(candidatePassword: string): Promise<boolean>;
-  addRefreshToken(token: string, expiryDays: number): Promise<void>;
+  addRefreshToken(token: string, expiryDays?: number): Promise<void>;
   revokeRefreshToken(token: string): Promise<boolean>;
   hasPermission(permissionName: string): boolean;
 }

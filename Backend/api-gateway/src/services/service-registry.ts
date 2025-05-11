@@ -35,7 +35,7 @@ export enum ServiceRegistryEvent {
  */
 class ServiceRegistry extends EventEmitter {
   // Mapa de serviços registrados
-  private services: Map<string, ServiceInfo> = new Map();
+  public services: Map<string, ServiceInfo> = new Map();
   
   // Cache Redis (opcional - usado apenas se configurado)
   private redisClient: any = null;
@@ -223,6 +223,7 @@ class ServiceRegistry extends EventEmitter {
       throw new Error(`Serviço ${serviceId} não encontrado`);
     }
     
+    // Em desenvolvimento, ignorar o status do serviço
     if (!service.isActive && env.NODE_ENV === 'production') {
       logger.warn(`Tentativa de acessar serviço inativo: ${serviceId}`);
       throw new Error(`Serviço ${serviceId} está indisponível no momento`);
@@ -338,7 +339,36 @@ class ServiceRegistry extends EventEmitter {
     // Atualizar última verificação
     service.lastCheck = new Date();
     
+    // Em desenvolvimento, considerar sempre ativo
+    if (env.NODE_ENV === 'development') {
+      service.isActive = true;
+      logger.debug(`Serviço ${serviceId} marcado como ativo (modo desenvolvimento)`);
+      return true;
+    }
+    
     return await checkServiceHealthStatus(service);
+  }
+
+  /**
+   * Marca um serviço como ativo ou inativo manualmente
+   * @param serviceId ID do serviço
+   * @param isActive Status ativo (true) ou inativo (false)
+   */
+  public markServiceAsActive(serviceId: string, isActive: boolean = true): void {
+    const service = this.services.get(serviceId);
+    
+    if (!service) {
+      logger.warn(`Tentativa de marcar serviço inexistente como ${isActive ? 'ativo' : 'inativo'}: ${serviceId}`);
+      return;
+    }
+    
+    service.isActive = isActive;
+    service.lastCheck = new Date();
+    
+    logger.info(`Serviço ${serviceId} marcado manualmente como ${isActive ? 'ativo' : 'inativo'}`);
+    
+    // Persistir no Redis se disponível
+    this.persistToRedis();
   }
 
   /**
@@ -429,6 +459,19 @@ export function checkAllServicesHealth(): Promise<void> {
 
 export function shutdownServiceRegistry(): void {
   serviceRegistry.shutdown();
+}
+
+/**
+ * Marca todos os serviços como ativos
+ */
+export function markServicesAsActive(): void {
+  logger.info('Marcando todos os serviços como ativos para ambiente de desenvolvimento');
+  const services = serviceRegistry.getAllServices();
+  
+  for (const service of services) {
+    serviceRegistry.markServiceAsActive(service.id, true);
+    logger.info(`Serviço ${service.id} marcado como ativo manualmente`);
+  }
 }
 
 // Para permitir a escuta de eventos
