@@ -4,7 +4,7 @@ import workerRoutes from './worker.routes';
 
 
 const router = Router();
-
+// Define as rotas principais do aplicativo
 router.use('/auth', authRoutes);
 router.use('/workers', workerRoutes);
 

@@ -8,9 +8,7 @@ const allowedOrigins = [
   'http://localhost:3000',
   'http://localhost:8080',
   
-  // Origens de produção (adicione seus domínios)
-  'https://app.globoo.com.br',
-  'https://admin.globoo.com.br',
+  
   
   // Permite subdomínios em produção
   ...(env.NODE_ENV === 'production' ? [/\.globoo\.com\.br$/] : []),

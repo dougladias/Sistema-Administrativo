@@ -1,9 +1,7 @@
-
 import { Response } from 'express';
 
-/**
- * Interface para resposta de sucesso padrão
- */
+
+// Interface para resposta de sucesso padrão
 export interface ApiSuccessResponse<T> {
   success: true;
   data: T;
@@ -11,9 +9,8 @@ export interface ApiSuccessResponse<T> {
   requestId?: string;
 }
 
-/**
- * Interface para resposta de erro padrão
- */
+
+// Interface para resposta de erro padrão
 export interface ApiErrorResponse {
   success: false;
   error: {
@@ -25,9 +22,8 @@ export interface ApiErrorResponse {
   requestId?: string;
 }
 
-/**
- * Tipos de status HTTP comuns
- */
+
+// Tipos de status HTTP comuns
 export enum HttpStatus {
   OK = 200,
   CREATED = 201,
@@ -42,9 +38,8 @@ export enum HttpStatus {
   SERVICE_UNAVAILABLE = 503,
 }
 
-/**
- * Códigos de erro padronizados da API
- */
+
+// Códigos de erro padronizados da API
 export enum ErrorCode {
   VALIDATION_ERROR = 'VALIDATION_ERROR',
   AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
@@ -57,9 +52,8 @@ export enum ErrorCode {
   DATA_ACCESS_ERROR = 'DATA_ACCESS_ERROR',
 }
 
-/**
- * Classe de utilitários para respostas da API
- */
+
+// Classe de utilitários para respostas da API
 export class ApiResponse {
   /**
    * Envia uma resposta de sucesso
@@ -115,23 +109,20 @@ export class ApiResponse {
     return res.status(status).json(response);
   }
 
-  /**
-   * Resposta para recursos criados com sucesso
-   */
+
+// Resposta para recursos criados com sucesso
   static created<T>(res: Response, data: T, requestId?: string): Response {
     return ApiResponse.success(res, data, HttpStatus.CREATED, requestId);
   }
 
-  /**
-   * Resposta para operações bem-sucedidas sem conteúdo de retorno
-   */
+
+// Resposta para operações bem-sucedidas sem conteúdo de retorno
   static noContent(res: Response): Response {
     return res.status(HttpStatus.NO_CONTENT).end();
   }
 
-  /**
-   * Resposta para erros de validação
-   */
+
+// Resposta para erros de validação  
   static validationError(
     res: Response,
     message: string = 'Erro de validação',
@@ -148,9 +139,8 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para erros de autenticação
-   */
+
+ //Resposta para erros de autenticação
   static unauthorized(
     res: Response,
     message: string = 'Não autorizado',
@@ -166,9 +156,8 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para erros de autorização
-   */
+
+// Resposta para erros de autorização
   static forbidden(
     res: Response,
     message: string = 'Acesso negado',
@@ -184,9 +173,8 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para recursos não encontrados
-   */
+
+// Resposta para recursos não encontrados
   static notFound(
     res: Response,
     message: string = 'Recurso não encontrado',
@@ -202,9 +190,7 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para conflitos (ex: tentativa de criar recurso que já existe)
-   */
+// Resposta para conflitos (ex: tentativa de criar recurso que já existe)
   static conflict(
     res: Response,
     message: string = 'Recurso já existe',
@@ -221,9 +207,7 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para erros internos do servidor
-   */
+// Resposta para erros internos do servidor
   static serverError(
     res: Response,
     message: string = 'Erro interno do servidor',
@@ -240,9 +224,8 @@ export class ApiResponse {
     );
   }
 
-  /**
-   * Resposta para serviços indisponíveis
-   */
+
+// Resposta para serviços indisponíveis
   static serviceUnavailable(
     res: Response,
     message: string = 'Serviço temporariamente indisponível',

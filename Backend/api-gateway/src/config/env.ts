@@ -47,6 +47,7 @@ function loadEnvironment() {
       APP_NAME: process.env.APP_NAME,
     };
 
+    // Verifica se o arquivo .env existe
     return envSchema.parse(_env);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -62,6 +63,7 @@ function loadEnvironment() {
   }
 }
 
+// Carrega as variáveis de ambiente
 export const env = {
   NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test',
   PORT: parseInt(process.env.PORT || '3000'),

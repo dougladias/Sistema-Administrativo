@@ -24,6 +24,7 @@ export function createApp() {
     healthCheck: '/health'  // Apenas o caminho, sem repetir a URL base
   });
 
+  // Registrar o serviço de proxy
   registerService({
     id: 'worker',
     name: 'Worker Service',
@@ -81,9 +82,7 @@ export function createApp() {
     });
   });
 
-  // Adicionar o proxy baseado em rotas como fallback
-  // app.use('/api', routeBasedProxy);
-
+  
   // Health check
   app.get('/health', (req, res) => {
     res.status(200).json({ 

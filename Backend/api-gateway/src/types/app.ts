@@ -61,10 +61,8 @@ export interface PasswordChangeRequest {
   confirmPassword: string;
 }
 
-/**
- * Tipos relacionados a workers
- */
 
+// Tipos relacionados a workers
 // Status do worker
 export enum WorkerStatus {
   ACTIVE = 'active',
@@ -182,10 +180,7 @@ export interface CreateWorkerRequest {
   [key: string]: any; // Campos adicionais
 }
 
-/**
- * Tipos relacionados a benefícios
- */
-
+//Tipos relacionados a benefícios
 // Tipo de benefício
 export enum BenefitType {
   HEALTH = 'health',
@@ -255,10 +250,8 @@ export interface AssignBenefitRequest {
   notes?: string;
 }
 
-/**
- * Tipos relacionados a documentos
- */
 
+// Tipos relacionados a documentos
 // Tipo de documento
 export enum DocumentType {
   CONTRACT = 'contract',
@@ -318,10 +311,8 @@ export interface ValidateDocumentRequest {
   notes?: string;
 }
 
-/**
- * Tipos de serviços e registros
- */
 
+// Tipos de serviços e registros
 // Informação de serviço para service registry
 export interface ServiceInfo {
   id: string;
@@ -343,10 +334,7 @@ export interface ServiceStats {
   uptime: number; // em segundos
 }
 
-/**
- * Tipos relacionados a APIs e requisições
- */
-
+// Tipos relacionados a APIs e requisições
 // Paginação
 export interface PaginationParams {
   page?: number;
@@ -429,10 +417,7 @@ export interface LogEntry {
   metadata?: Record<string, any>;
 }
 
-/**
- * Tipos relacionados à segurança
- */
-
+// Tipos relacionados à segurança
 // Tipos de eventos de segurança
 export enum SecurityEventType {
   LOGIN_SUCCESS = 'login_success',
@@ -468,10 +453,7 @@ export interface ApiKey {
   updatedAt: Date;
 }
 
-/**
- * Tipos para testes e monitoramento
- */
-
+// Tipos para testes e monitoramento
 // Saúde do sistema
 export interface SystemHealth {
   status: 'ok' | 'degraded' | 'down';
@@ -515,10 +497,8 @@ export interface Alert {
   acknowledgedAt?: Date;
 }
 
-/**
- * Tipos de namespace e extensões
- */
 
+// Tipos de namespace e extensões
 import * as winston from 'winston';
 
 // Estender a interface Request do Express para incluir atributos personalizados
@@ -538,10 +518,7 @@ declare global {
   }
 }
 
-/**
- * Tipos de configuração
- */
-
+// Tipos de configuração
 // Configuração do ambiente
 export interface EnvironmentConfig {
   NODE_ENV: 'development' | 'production' | 'test';

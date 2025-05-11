@@ -155,6 +155,7 @@ router.get('/debug/connection', async (req, res) => {
       };
     }
     
+    // Responder com os resultados
     res.json({
       timestamp: new Date().toISOString(),
       environment: {

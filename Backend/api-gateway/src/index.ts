@@ -34,11 +34,13 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
+// Tratamento de erros não capturados
 process.on('SIGTERM', () => {
   logger.info('SIGTERM recebido. Encerrando graciosamente');
   process.exit(0);
 });
 
+// Tratamento de interrupções
 process.on('SIGINT', () => {
   logger.info('SIGINT recebido. Encerrando graciosamente');
   process.exit(0);

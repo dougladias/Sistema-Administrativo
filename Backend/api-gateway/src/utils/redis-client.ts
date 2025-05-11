@@ -17,14 +17,17 @@ export async function createRedisClient() {
       logger.error('Redis client error:', err);
     });
 
+    // Configurar eventos de conexão
     client.on('connect', () => {
       logger.info('Redis client connected');
     });
 
+    // Configurar eventos de desconexão
     client.on('reconnecting', () => {
       logger.warn('Redis client reconnecting');
     });
 
+    // Configurar eventos de desconexão
     client.on('ready', () => {
       logger.info('Redis client ready');
     });

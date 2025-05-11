@@ -20,6 +20,7 @@ httpClient.interceptors.response.use(
   (response) => {
     return response;
   },
+  // Erro de resposta
   (error) => {
     if (error.response) {
       logger.error(`Erro na resposta: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
@@ -37,22 +38,22 @@ export async function get<T = any>(url: string, config?: AxiosRequestConfig): Pr
   const response: AxiosResponse<T> = await httpClient.get(url, config);
   return response.data; // Certifique-se que esta linha existe
 }
-
+// Método de requisição POST
 export async function post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   const response: AxiosResponse<T> = await httpClient.post(url, data, config);
   return response.data;
 }
-
+// Método de requisição PUT
 export async function put<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {
   const response: AxiosResponse<T> = await httpClient.put(url, data, config);
   return response.data;
 }
-
+// Método de requisição DELETE
 export async function del<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const response: AxiosResponse<T> = await httpClient.delete(url, config);
   return response.data;
 }
-
+// Exportando os métodos
 export default {
   get,
   post,
