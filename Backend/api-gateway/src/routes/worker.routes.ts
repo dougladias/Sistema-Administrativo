@@ -19,8 +19,7 @@ function logRequest(method: string, url: string, body?: any) {
 // Buscar todos os workers
 router.get('/', async (req, res, next) => {
   try {
-    // Remover o prefixo /api/
-    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/workers`);
+    const result = await httpClient.get(`${env.WORKER_SERVICE_URL}/api/workers`);
     res.json(result);
   } catch (error) {
     next(error);

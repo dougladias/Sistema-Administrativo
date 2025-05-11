@@ -35,7 +35,7 @@ httpClient.interceptors.response.use(
 // Métodos de requisição
 export async function get<T = any>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const response: AxiosResponse<T> = await httpClient.get(url, config);
-  return response.data;
+  return response.data; // Certifique-se que esta linha existe
 }
 
 export async function post<T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> {

@@ -104,6 +104,15 @@ export function createApp() {
     });
   });
 
+  // Rota principal
+  app.get('/', (req, res) => {
+    res.json({ 
+      message: 'API Gateway funcionando!',
+      versao: '1.0.0',
+      endpoints: ['/api/workers', '/api/auth', '/api/admin']
+    });
+  });
+
   // Capturar rotas não encontradas
   app.use((req, res, next) => {
     logger.warn(`Rota não encontrada: ${req.method} ${req.originalUrl}`);

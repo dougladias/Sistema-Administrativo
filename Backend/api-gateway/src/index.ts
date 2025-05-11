@@ -21,7 +21,7 @@ validateConfig();
 const app = createApp();
 
 // Definir a porta
-const PORT = env.PORT || 4000;
+const PORT = env.PORT || 3005;
 
 // Iniciar o servidor
 app.listen(PORT, () => {
