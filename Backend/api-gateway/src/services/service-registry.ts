@@ -160,12 +160,12 @@ class ServiceRegistry extends EventEmitter {
       ? service.healthCheck 
       : `/${service.healthCheck}`;
     
-    // Registrar o serviço
+    // Registrar o serviço - ARMAZENAR APENAS O CAMINHO, NÃO A URL COMPLETA
     const serviceInfo: ServiceInfo = {
       ...service,
       url,
-      healthCheck: `${url}${healthCheck}`,
-      isActive: false, // Começa como inativo até verificação de saúde
+      healthCheck, // CORREÇÃO: Armazenar apenas o caminho do health check
+      isActive: false,
       lastCheck: new Date(),
     };
     
@@ -338,60 +338,7 @@ class ServiceRegistry extends EventEmitter {
     // Atualizar última verificação
     service.lastCheck = new Date();
     
-    try {
-      // Configurar timeout para verificação de saúde
-      const response = await axios.get(service.healthCheck, {
-        timeout: 5000, // 5 segundos
-        validateStatus: null, // Não lançar exceção para qualquer status HTTP
-      });
-      
-      // Verificar se o serviço está saudável (status 200 OK)
-      const isHealthy = response.status === 200;
-      
-      // Atualizar metadados se disponíveis na resposta
-      if (isHealthy && response.data) {
-        service.version = response.data.version || service.version;
-        service.metadata = response.data;
-      }
-      
-      // Atualizar status do serviço
-      const previousStatus = service.isActive;
-      service.isActive = isHealthy;
-      
-      // Logar mudanças de status
-      if (previousStatus !== isHealthy) {
-        if (isHealthy) {
-          logger.info(`Serviço ${serviceId} agora está ATIVO`);
-          this.emit(ServiceRegistryEvent.SERVICE_UP, service);
-        } else {
-          logger.warn(`Serviço ${serviceId} agora está INATIVO (status: ${response.status})`);
-          this.emit(ServiceRegistryEvent.SERVICE_DOWN, service);
-        }
-      }
-      
-      // Persistir no Redis em caso de mudança de status
-      if (previousStatus !== isHealthy) {
-        this.persistToRedis();
-      }
-      
-      return isHealthy;
-    } catch (error: any) {
-      // Capturar erros de timeout ou conexão
-      const previousStatus = service.isActive;
-      service.isActive = false;
-      
-      if (previousStatus) {
-        logger.error(`Serviço ${serviceId} agora está INATIVO: ${error.message}`);
-        this.emit(ServiceRegistryEvent.SERVICE_DOWN, service);
-        
-        // Persistir no Redis em caso de mudança de status
-        this.persistToRedis();
-      } else {
-        logger.debug(`Serviço ${serviceId} continua INATIVO: ${error.message}`);
-      }
-      
-      return false;
-    }
+    return await checkServiceHealthStatus(service);
   }
 
   /**
@@ -409,6 +356,34 @@ class ServiceRegistry extends EventEmitter {
     }
     
     logger.info('Registro de serviços encerrado');
+  }
+}
+
+// Função auxiliar para verificar a saúde de um serviço
+async function checkServiceHealthStatus(service: ServiceInfo): Promise<boolean> {
+  try {
+    // SOLUÇÃO: Garantir que não haja duplicação da URL base
+    let healthUrl;
+    if (service.healthCheck.includes('http://') || service.healthCheck.includes('https://')) {
+      // Se o healthCheck já contém uma URL completa, use-a diretamente
+      healthUrl = service.healthCheck;
+    } else {
+      // Caso contrário, combine com a URL base
+      healthUrl = service.url + (service.healthCheck.startsWith('/') ? service.healthCheck : `/${service.healthCheck}`);
+    }
+    
+    logger.debug(`Verificando saúde do serviço ${service.id} em ${healthUrl}`);
+    
+    const response = await axios.get(healthUrl, { 
+      timeout: 10000,  // 10 segundos
+      validateStatus: () => true // Aceitar qualquer status para logging
+    });
+    
+    logger.debug(`Resposta de saúde do ${service.id}: ${response.status}`);
+    return response.status === 200;
+  } catch (error: any) {
+    logger.error(`Erro ao verificar saúde do serviço ${service.id}: ${error.message}`);
+    return false;
   }
 }
 

@@ -18,7 +18,7 @@ export function createApp() {
   app.use(requestLogger);
 
   // Rotas da API
-  app.use('/api', routes);
+  app.use('/', routes);
 
   // Health check
   app.get('/health', (req, res) => {

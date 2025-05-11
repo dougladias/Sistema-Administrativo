@@ -1,0 +1,45 @@
+import { createApp } from './app';
+import { env } from './config/env';
+import { logger } from './config/logger';
+
+// Validar configurações críticas
+function validateConfig() {
+  logger.info('Iniciando API Gateway com as seguintes configurações:');
+  logger.info(`- AUTH_SERVICE_URL: ${env.AUTH_SERVICE_URL || 'NÃO DEFINIDO'}`);
+  logger.info(`- WORKER_SERVICE_URL: ${env.WORKER_SERVICE_URL || 'NÃO DEFINIDO'}`);
+  logger.info(`- PORT: ${env.PORT || 4000}`);
+  logger.info(`- NODE_ENV: ${env.NODE_ENV}`);
+  
+  if (!env.AUTH_SERVICE_URL || !env.WORKER_SERVICE_URL) {
+    logger.error('AVISO: Serviços não estão configurados corretamente!');
+  }
+}
+
+validateConfig();
+
+// Criar a aplicação
+const app = createApp();
+
+// Definir a porta
+const PORT = env.PORT || 4000;
+
+// Iniciar o servidor
+app.listen(PORT, () => {
+  logger.info(`API Gateway iniciado e escutando na porta ${PORT} em modo ${env.NODE_ENV}`);
+});
+
+// Tratamento de erros não tratados
+process.on('unhandledRejection', (err) => {
+  logger.error('UNHANDLED REJECTION:', err);
+  process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM recebido. Encerrando graciosamente');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT recebido. Encerrando graciosamente');
+  process.exit(0);
+});

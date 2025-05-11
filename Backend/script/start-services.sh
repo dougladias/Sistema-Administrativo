@@ -14,6 +14,9 @@ NC='\033[0m' # No Color
 # Diretório base (ajuste para o caminho correto)
 BASE_DIR="../"
 
+# Diretório de logs - usar um diretório no HOME do usuário para evitar problemas de permissão
+LOGS_DIR="$HOME/sistema_admin_logs"
+
 # Lista de serviços para iniciar
 SERVICES=(
   "api-gateway"
@@ -49,14 +52,14 @@ start_service() {
       echo -e "Iniciando serviço com 'npm run dev'..."
       
       # Iniciar o serviço em background e capturar saída
-      npm run dev > "../logs/${service}.log" 2>&1 &
+      npm run dev > "${LOGS_DIR}/${service}.log" 2>&1 &
       
       # Armazenar PID do processo
       local pid=$!
       SERVICE_PIDS[$service]=$pid
       
       echo -e "${GREEN}Serviço ${service} iniciado! (PID: $pid)${NC}"
-      echo -e "Logs sendo gravados em: ../logs/${service}.log"
+      echo -e "Logs sendo gravados em: ${LOGS_DIR}/${service}.log"
       
       # Aguardar um momento para verificar se o processo continua em execução
       sleep 2
@@ -86,7 +89,7 @@ start_service() {
 # Função para monitorar logs em tempo real
 show_logs() {
   local service=$1
-  tail -f "../logs/${service}.log"
+  tail -f "${LOGS_DIR}/${service}.log"
 }
 
 # Função para encerrar todos os serviços
@@ -116,8 +119,9 @@ main() {
   echo -e "${YELLOW}   Iniciando todos os microsserviços   ${NC}"
   echo -e "${YELLOW}========================================${NC}"
   
-  # Criar diretório de logs se não existir
-  mkdir -p "../logs"
+  # Criar diretório de logs no diretório home do usuário onde teremos permissão garantida
+  mkdir -p "${LOGS_DIR}"
+  echo -e "${GREEN}Diretório de logs criado em: ${LOGS_DIR}${NC}"
   
   # Iniciar cada serviço
   local active_services=0
@@ -145,8 +149,8 @@ main() {
   echo -e "\n${YELLOW}Pressione Ctrl+C para encerrar todos os serviços.${NC}"
   echo -e "${YELLOW}Mostrando logs combinados:${NC}\n"
   
-  # Combinar logs de todos os serviços
-  tail -f ../logs/*.log
+  # Combinar logs de todos os serviços (atualizado para o novo diretório)
+  tail -f ${LOGS_DIR}/*.log
 }
 
 # Executar a função principal

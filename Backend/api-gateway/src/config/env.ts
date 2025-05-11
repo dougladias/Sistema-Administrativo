@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { z } from 'zod';
 
 // Carrega o arquivo .env
-const envPath = path.resolve(__dirname, '../../.env');
+const envPath = path.resolve(__dirname, '../../../.env');
 dotenv.config({ path: envPath });
 
 // Schema para validação
@@ -20,8 +20,8 @@ const envSchema = z.object({
   JWT_EXPIRATION: z.string().default('1d'),
   
   // URLs dos Serviços
-  AUTH_SERVICE_URL: z.string().default('http://localhost:4001'),
-  WORKER_SERVICE_URL: z.string().default('http://localhost:4002'),
+  AUTH_SERVICE_URL: z.string().default('http://localhost:4002'),
+  WORKER_SERVICE_URL: z.string().default('http://localhost:4014'),
   
   
   // Configurações de Rate Limiting

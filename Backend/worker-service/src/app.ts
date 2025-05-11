@@ -22,7 +22,7 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
-// Rotas da API (sem middleware de autenticação - isso é responsabilidade do gateway)
+// Rotas da API 
 app.use('/api/workers', workerRoutes);
 
 // Handler para rotas não encontradas
