@@ -1,138 +1,53 @@
-# Dependências
+# Node.js
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
-yarn.lock
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/sdks
-!.yarn/versions
+pnpm-debug.log*
 
-# Arquivos de ambiente
+# Environment variables
 .env
-.env.development
-.env.test
-.env.production
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Arquivos de build
+# Next.js build output
+.next/
+out/
+
+# Vercel
+.vercel/
+
+# Local build
 dist/
 build/
-out/
-.next/
-.nuxt/
-.output/
-*.tsbuildinfo
-
-# Cache
-.npm
-.eslintcache
-.stylelintcache
 
 # Logs
-logs
+logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
 
-# Cobertura de testes
-coverage/
-.nyc_output/
-
-# Ferramentas de IDE e editores
-.idea/
+# IDEs and editors
 .vscode/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
+.idea/
 *.sublime-project
 *.sublime-workspace
-.project
-.classpath
-.settings/
-*.code-workspace
-.history/
-.ionide/
 
-# Arquivos temporários
-tmp/
-temp/
-.tmp/
-.temp/
-
-# Arquivos de sistema
+# OS-specific
 .DS_Store
 Thumbs.db
-desktop.ini
-$RECYCLE.BIN/
-System Volume Information/
 
-# Arquivos específicos de Node.js
-.node_repl_history
-.nyc_output/
-*.tgz
-*.log
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+# Test coverage
+coverage/
+*.lcov
 
-# Arquivos específicos de TypeScript
+# TypeScript
 *.tsbuildinfo
-next-env.d.ts
 
-# Arquivos específicos de Jest
-.jest-cache/
+# Optional: ignore lockfiles if using only one package manager
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-# Arquivos específicos de MongoDB
-*.bson
-mongod*.lock
-dump/
-db/
-
-# Uploads e arquivos de usuário
-uploads/
-public/uploads/
-/public/storage
-
-# Documentação gerada automaticamente
-docs/
-doc/
-documentation/
-jsdoc/
-typedoc/
-
-# Arquivos de deploy
-.vercel
-.netlify
-.serverless/
-.fusebox/
-.dynamodb/
-.terraform/
-*.tfstate
-*.tfstate.*
-
-# Arquivos de debug
-.debug/
-
-# Dados de desenvolvimento
-dev-data/
-*.dev.*
-
-# Chaves e certificados
-*.pem
-*.crt
-*.key
-*.p12
-*.pfx
-*.cer
-*.der
+# Optional: if using TurboRepo or monorepo structure
+turbo/

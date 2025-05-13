@@ -16,6 +16,7 @@ SERVICES=(
   "beneficit-service"
   "document-service"
   "worker-service"
+  "shared"
   # Adicione outros serviços conforme necessário
 )
 

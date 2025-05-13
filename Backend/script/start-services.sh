@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Script para iniciar todos os microsserviços
 # Autor: Claude
 # Data: 11/05/2025
@@ -11,20 +9,20 @@ BLUE='\033[0;34m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Diretório base (ajuste para o caminho correto)
-BASE_DIR="../"
+# Obter o caminho absoluto do diretório base
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Diretório de logs - usar um diretório no HOME do usuário para evitar problemas de permissão
-LOGS_DIR="$HOME/sistema_admin_logs"
+# Diretório de logs com caminho absoluto
+LOGS_DIR="../logs"
 
 # Lista de serviços para iniciar
 SERVICES=(
   "api-gateway"
   "auth-service"
   "worker-service"
-  # Descomente conforme necessário
-  # "beneficit-service"
-  # "document-service"
+  "document-service"
+  #"beneficit-service"
 )
 
 # Armazenar PIDs dos processos
@@ -86,12 +84,6 @@ start_service() {
   return 0
 }
 
-# Função para monitorar logs em tempo real
-show_logs() {
-  local service=$1
-  tail -f "${LOGS_DIR}/${service}.log"
-}
-
 # Função para encerrar todos os serviços
 stop_services() {
   echo -e "\n${YELLOW}Encerrando todos os serviços...${NC}"
@@ -119,7 +111,7 @@ main() {
   echo -e "${YELLOW}   Iniciando todos os microsserviços   ${NC}"
   echo -e "${YELLOW}========================================${NC}"
   
-  # Criar diretório de logs no diretório home do usuário onde teremos permissão garantida
+  # Criar diretório de logs
   mkdir -p "${LOGS_DIR}"
   echo -e "${GREEN}Diretório de logs criado em: ${LOGS_DIR}${NC}"
   
@@ -149,8 +141,8 @@ main() {
   echo -e "\n${YELLOW}Pressione Ctrl+C para encerrar todos os serviços.${NC}"
   echo -e "${YELLOW}Mostrando logs combinados:${NC}\n"
   
-  # Combinar logs de todos os serviços (atualizado para o novo diretório)
-  tail -f ${LOGS_DIR}/*.log
+  # CORREÇÃO: Usar aspas duplas ao redor do caminho completo
+  tail -f "${LOGS_DIR}"/*.log
 }
 
 # Executar a função principal

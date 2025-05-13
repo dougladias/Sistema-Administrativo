@@ -1,9 +1,9 @@
-// src/services/proxy.service.ts
 import { Request, Response, NextFunction } from 'express';
 import { createProxyMiddleware, Options } from 'http-proxy-middleware';
 import { logger } from '../config/logger';
 import { getAllServices, getServiceUrl, isServiceActive } from './service-registry';
 import { ApiResponse, ErrorCode } from '../utils/response.utils';
+import { env } from '../config/env';
 
 /**
  * Configurações padrão para todos os proxies
@@ -99,34 +99,39 @@ export function createServiceProxy(serviceId: string, options: Options = {}) {
  */
 export function routeBasedProxy(req: Request, res: Response, next: NextFunction) {
   try {
-    // Extrair o primeiro segmento do path após /api
     const path = req.path;
-    
-    // Verificar e corrigir caminhos duplicados (como /api/api/...)
-    if (path.startsWith('/api/')) {
-      logger.warn(`Caminho duplicado detectado: ${path}. Modificando para ${path.replace('/api/', '/')}`);
-      req.url = path.replace('/api/', '/');
+
+    // Identificar o serviço com base no caminho
+    const serviceId = path.split('/')[2]; // Exemplo: /api/documents -> "documents"
+
+    let targetUrl = '';
+    if (serviceId === 'documents') {
+      targetUrl = env.DOCUMENT_SERVICE_URL;
+    } else if (serviceId === 'workers') {
+      targetUrl = env.WORKER_SERVICE_URL;
+    } else if (serviceId === 'auth') {
+      targetUrl = env.AUTH_SERVICE_URL;
+    } else {
+      return res.status(404).json({ message: 'Serviço não encontrado' });
     }
-    
-    // Dividir o caminho para obter o ID do serviço
-    const segments = path.split('/').filter(Boolean);
-    
-    if (segments.length === 0) {
-      return next();
-    }
-    
-    const serviceId = segments[0];
-    
-    logger.debug(`Procurando serviço para path '${path}', service ID: '${serviceId}'`);
-    
-    // Criar e usar o proxy para o serviço
-    const proxy = createServiceProxy(serviceId);
+
+    logger.info(`Redirecionando requisição para ${targetUrl}${req.originalUrl}`);
+
+    // Criar o proxy para o serviço
+    const proxy = createProxyMiddleware({
+      target: targetUrl,
+      changeOrigin: true,
+      pathRewrite: {
+        '^/api/documents': '/api/documents', // Mantém o caminho original
+        '^/api/workers': '/api/workers',
+        '^/api/auth': '/api/auth',
+      },
+    });
+
     return proxy(req, res, next);
-  } catch (error: unknown) {
-    // Se houver algum erro ao criar ou usar o proxy, passe para o próximo middleware
-    const err = error as Error;
-    logger.error(`Erro no proxy baseado em rota: ${err.message}`, { error: err });
-    return next(err);
+  } catch (error) {
+    logger.error('Erro no proxy:', error);
+    next(error);
   }
 }
 

@@ -29,8 +29,26 @@ export const StatusEnum = z.enum(['active', 'inactive', 'other']);
 export const WorkerCreateSchema = z.object({
   name: z.string().min(3).max(100),
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve conter 11 dígitos numéricos'),
-  nascimento: z.date(),
-  admissao: z.date(),
+  nascimento: z.preprocess((arg) => {
+    if (typeof arg === 'string') {
+      const date = new Date(arg);
+      if (isNaN(date.getTime())) {
+        throw new Error('Formato de data inválido para nascimento');
+      }
+      return date;
+    }
+    return arg;
+  }, z.date()),
+  admissao: z.preprocess((arg) => {
+    if (typeof arg === 'string') {
+      const date = new Date(arg);
+      if (isNaN(date.getTime())) {
+        throw new Error('Formato de data inválido para admissao');
+      }
+      return date;
+    }
+    return arg;
+  }, z.date()),
   salario: z.string(),
   ajuda: z.string().optional(),
   numero: z.string(),

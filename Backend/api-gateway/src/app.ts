@@ -30,6 +30,13 @@ export function createApp() {
     url: env.WORKER_SERVICE_URL,
     healthCheck: '/health'
   });
+
+  registerService({
+    id: 'document',
+    name: 'Document Service',
+    url: env.DOCUMENT_SERVICE_URL,
+    healthCheck: '/health'
+  });
   
   // Middlewares de segurança e otimização
   app.use(helmet({

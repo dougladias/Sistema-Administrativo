@@ -62,7 +62,7 @@ export const defaultRateLimiter = rateLimit({
       'Limite de requisições excedido. Por favor, tente novamente mais tarde.',
       429,
       {
-        retryAfter: Math.ceil(env.RATE_LIMIT_WINDOW_MS / 1000),
+        retryAfter: Math.ceil(((env.RATE_LIMIT_WINDOW_MS ?? 60000) as number) / 1000),
       },
       requestId
     );
@@ -124,3 +124,29 @@ export const sensitiveRateLimiter = rateLimit({
     );
   },
 });
+
+// Limiter padrão para rotas da API
+export const apiLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000, // 15 minutos por padrão
+  max: env.RATE_LIMIT_MAX || 100, // limite de 100 requisições por janela
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    message: 'Muitas requisições, por favor tente novamente mais tarde',
+  }
+});
+
+// Limiter específico para rotas de autenticação (mais restritivo)
+export const authLimiter = rateLimit({
+  windowMs: env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000,
+  max: env.AUTH_RATE_LIMIT_MAX || 10, // limite mais restrito para tentativas de login
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    status: 'error',
+    message: 'Muitas tentativas de autenticação, por favor tente novamente mais tarde',
+  }
+});
+
+// Você pode adicionar outros limitadores específicos conforme necessário

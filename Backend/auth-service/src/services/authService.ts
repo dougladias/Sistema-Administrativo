@@ -1,4 +1,3 @@
-// Backend/auth-service/src/services/authService.ts
 import jwt, { Secret, SignOptions } from 'jsonwebtoken';
 import { createUserModel, IUser, UserRole, UserStatus } from '../../../shared/src/models/user.model';
 import { 
@@ -81,7 +80,20 @@ class AuthService {
       
       // Adicionar refresh token ao usuário
       console.log('Adicionando refresh token...');
-      await user.addRefreshToken(refreshToken);
+      // Usar operação atômica para adicionar o token
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7); // 7 dias de expiração
+
+      await User.findByIdAndUpdate(user._id, {
+        $push: {
+          refreshTokens: {
+            token: refreshToken,
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+            createdAt: new Date(),
+            isRevoked: false
+          }
+        }
+      });
       
       // Salvar o usuário
       console.log('Salvando usuário...');
@@ -111,76 +123,47 @@ class AuthService {
   /**
    * Autentica um usuário
    */
-  async login(email: string, password: string, req?: Request): Promise<AuthResponse> {
-    try {
-      console.log('Iniciando login com email:', email);
-      
-      // Buscar usuário
-      console.log('Buscando usuário...');
-      const user = await User.findOne({ email });
-      if (!user) {
-        console.log('Usuário não encontrado');
-        // Registrar tentativa de login mal-sucedida
-        this.recordLoginAttempt(null, req, false);
-        throw ApiError.authentication('Credenciais inválidas');
-      }
-      console.log('Usuário encontrado');
-      
-      // Verificar se a conta está ativa
-      if (user.status !== UserStatus.ACTIVE) {
-        console.log('Conta não está ativa');
-        this.recordLoginAttempt(user, req, false);
-        throw ApiError.authentication('Conta inativa ou bloqueada');
-      }
-      
-      // Verificar senha
-      console.log('Verificando senha...');
-      const isPasswordValid = await user.comparePassword(password);
-      if (!isPasswordValid) {
-        console.log('Senha inválida');
-        // Registrar tentativa de login mal-sucedida
-        this.recordLoginAttempt(user, req, false);
-        throw ApiError.authentication('Credenciais inválidas');
-      }
-      console.log('Senha válida');
-      
-      // Gerar tokens
-      console.log('Gerando tokens...');
-      const { accessToken, refreshToken } = this.generateTokens(user);
-      
-      // Adicionar refresh token ao usuário
-      console.log('Adicionando refresh token...');
-      await user.addRefreshToken(refreshToken);
-      
-      // Atualizar último login
-      user.lastLogin = new Date();
-      
-      // Registrar tentativa de login bem-sucedida
-      this.recordLoginAttempt(user, req, true);
-      
-      // Salvar as alterações
-      console.log('Salvando alterações...');
-      await user.save();
-      console.log('Login bem-sucedido');
-      
-      return {
-        user: {
-          id: user._id.toString(),
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          status: user.status
-        },
-        tokens: {
-          accessToken,
-          refreshToken
-        }
-      };
-    } catch (error) {
-      console.error('ERRO DETALHADO NO LOGIN:', error);
-      logger.error('Erro ao fazer login:', error);
-      throw error;
+  async login(email: string, password: string): Promise<AuthResponse> {
+    // Buscar usuário pelo email
+    const user = await User.findOne({ email });
+    if (!user) {
+      throw new ApiError('Credenciais inválidas', 401);
     }
+
+    // Verificar senha
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      throw new ApiError('Credenciais inválidas', 401);
+    }
+
+    // Gerar tokens
+    const { accessToken, refreshToken } = this.generateTokens(user);
+
+    // Usar findByIdAndUpdate em vez de save para operação atômica
+    await User.findByIdAndUpdate(user._id, {
+      $push: {
+        refreshTokens: {
+          token: refreshToken,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          createdAt: new Date(),
+          isRevoked: false
+        }
+      }
+    });
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        status: user.status
+      },
+      tokens: {
+        accessToken,
+        refreshToken
+      }
+    };
   }
   
   /**

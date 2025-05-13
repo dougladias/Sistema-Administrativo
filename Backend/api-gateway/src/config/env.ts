@@ -21,6 +21,7 @@ const envSchema = z.object({
   
   // URLs dos Serviços
   AUTH_SERVICE_URL: z.string().default('http://localhost:4010'),
+  DOCUMENT_SERVICE_URL: z.string().default('http://localhost:4011'),
   WORKER_SERVICE_URL: z.string().default('http://localhost:4014'),
   
   
@@ -41,6 +42,7 @@ function loadEnvironment() {
       JWT_SECRET: process.env.JWT_SECRET,
       JWT_EXPIRATION: process.env.JWT_EXPIRATION,
       AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL,
+      DOCUMENT_SERVICE_URL: process.env.DOCUMENT_SERVICE_URL,
       WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL,      
       RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS,
       RATE_LIMIT_MAX: process.env.RATE_LIMIT_MAX,
@@ -66,18 +68,21 @@ function loadEnvironment() {
 // Carrega as variáveis de ambiente
 export const env = {
   NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test',
-  PORT: parseInt(process.env.PORT || '3000'),
-  JWT_SECRET: process.env.JWT_SECRET as string,
-  JWT_EXPIRATION: process.env.JWT_EXPIRATION as string,
+  PORT: Number(process.env.PORT) || 3000,
+  JWT_SECRET: process.env.JWT_SECRET || '',
+  JWT_EXPIRATION: process.env.JWT_EXPIRATION || '1h',
   AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL || '',
-  WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL || '',  
+  DOCUMENT_SERVICE_URL: process.env.DOCUMENT_SERVICE_URL || '',
+  WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL || '',
   REDIS_HOST: process.env.REDIS_HOST || '',
   REDIS_PORT: process.env.REDIS_PORT || '',
   REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
   REDIS_DB: process.env.REDIS_DB || '',
-  APP_NAME: process.env.APP_NAME || 'App',
-  RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000'), // Default to 1 minute
+  RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS ? Number(process.env.RATE_LIMIT_WINDOW_MS) : undefined,
+  RATE_LIMIT_MAX: process.env.RATE_LIMIT_MAX ? Number(process.env.RATE_LIMIT_MAX) : undefined,
+  AUTH_RATE_LIMIT_MAX: process.env.AUTH_RATE_LIMIT_MAX ? Number(process.env.AUTH_RATE_LIMIT_MAX) : undefined,
   API_KEY: process.env.API_KEY || '',
+  APP_NAME: process.env.APP_NAME || 'api-gateway'
 };
 export const isProd = env.NODE_ENV === 'production';
 export const isDev = env.NODE_ENV === 'development';

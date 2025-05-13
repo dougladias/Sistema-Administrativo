@@ -44,8 +44,8 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     const { email, password } = req.body;
     console.log("Dados recebidos no controller login:", { email });
     
-    const result = await authService.login(email, password, req);
-    res.status(200).json(result);
+    const authResult = await authService.login(email, password);
+    res.status(200).json(authResult);
   } catch (error) {
     console.error("Erro detalhado no controller login:", error);
     logger.error('Erro ao autenticar usuário:', error);

@@ -25,8 +25,8 @@ export interface IFile {
 export interface IWorker extends Document {
   name: string;
   cpf: string;
-  nascimento: Date;
-  admissao: Date;
+  nascimento: Date | string | null;  // Data de nascimento
+  admissao: Date | string | null;  
   salario: string;
   ajuda?: string;
   numero: string;
@@ -47,8 +47,8 @@ const WorkerSchema = new Schema<IWorker>(
   {
     name: { type: String, required: true },
     cpf: { type: String, required: true, unique: true },
-    nascimento: { type: Date, required: true },
-    admissao: { type: Date, required: true },
+    nascimento: { type: String, required: true },
+    admissao: { type: String, required: true },
     salario: { type: String, required: true },
     ajuda: { type: String },
     numero: { type: String, required: true },
