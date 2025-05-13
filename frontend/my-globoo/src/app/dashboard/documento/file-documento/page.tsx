@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useDocuments } from '@/hooks/useDocuments';
-import { IDocument } from '@/models/Document';
-import workerService from '@/services/workerService';
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useDocuments } from '@/hooks/useDocuments'
+import { useWorkers } from '@/hooks/useWorkers'
 import { 
   Table,
   TableBody,
@@ -59,93 +58,79 @@ import {
   Download,
   Trash2,
   Search,  
-  MoreVertical, 
+  MoreVertical,
+  File,
+  FileImage,  
+  FileArchive,
   Eye,
   Clock,
-  Calendar,   
+  Calendar,  
+  Briefcase,
+  Heart,
+  UserPlus,
+  UserMinus,
   ChevronLeft,
-  ChevronRight,
-  AlertTriangle
+  ChevronRight
 } from 'lucide-react'
 
-// Interface para funcionário
-interface Employee {
+// Interface para o documento
+interface Document {
   _id: string;
   name: string;
-  department?: string;
+  type: string;
+  employee: string;
+  employeeId: string;
+  department: string;
+  uploadDate: string;
+  expiryDate: string;
+  size: string;
+  fileType: string;
+  path: string;
+  tags: string[];
 }
 
-// Dados de exemplo para tipos de documentos
+
+// Lista de tipos de documentos
 const documentTypes = [
-  { id: 1, label: 'Contrato de Trabalho' },
-  { id: 2, label: 'Atestado Médico' },
-  { id: 3, label: 'Documento de Admissão' },
-  { id: 4, label: 'Documento de Demissão' },
-  { id: 5, label: 'Certificado' },
-  { id: 6, label: 'Outros' }
-];
+  { id: 1, label: "Contrato de Trabalho", icon: Briefcase },
+  { id: 2, label: "Atestado Médico", icon: Heart },
+  { id: 3, label: "Documento de Admissão", icon: UserPlus },
+  { id: 4, label: "Documento de Demissão", icon: UserMinus },
+  { id: 5, label: "Certificado", icon: FileText },
+  { id: 6, label: "Outros", icon: File }
+]
 
-// Departamentos disponíveis
+// Departamentos
 const departments = [
-  'Todos',
-  'TI',
-  'RH', 
-  'Financeiro',
-  'Marketing',
-  'Administrativo',
-  'Comercial',
-  'Operacional'
-];
-
-// Função para obter ícone com base no tipo de arquivo
-const getFileIcon = (fileType: string) => {
-  switch (fileType.toLowerCase()) {
-    case 'pdf':
-      return <FileText className="h-4 w-4 text-red-400" />;
-    case 'doc':
-    case 'docx':
-      return <FileText className="h-4 w-4 text-blue-400" />;
-    case 'jpg':
-    case 'jpeg':
-    case 'png':
-      return <FileText className="h-4 w-4 text-green-400" />;
-    default:
-      return <FileText className="h-4 w-4 text-gray-400" />;
-  }
-};
-
-// Função para obter ícone com base no tipo de documento
-const getDocTypeIcon = (docType: string) => {
-  switch (docType) {
-    case 'Contrato de Trabalho':
-      return FileText;
-    case 'Atestado Médico':
-      return FileText;
-    case 'Documento de Admissão':
-      return FileText;
-    case 'Documento de Demissão':
-      return FileText;
-    case 'Certificado':
-      return FileText;
-    default:
-      return FileText;
-  }
-};
+  "Todos",
+  "TI",
+  "Marketing",
+  "Financeiro",
+  "Vendas",
+  "RH",
+  "Administrativo",
+  "Compliance",
+  "Operações"
+]
 
 export default function DocumentosPage() {
-  // Usar o hook personalizado para documentos
+  // Hooks para funcionários e documentos
   const { 
-    documents, 
-    loading, 
-    error, 
-    fetchDocuments, 
-    uploadDocument, 
-    deleteDocument, 
-    setError 
+    documents: apiDocuments, 
+    isLoading: docsLoading, 
+    error: docsError,
+    createDocument,
+    deleteDocument,
+    refetch: refetchDocuments
   } = useDocuments();
-
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [mappedDocuments, setMappedDocuments] = useState<IDocument[]>([]);
+  
+  const { 
+    workers: employees, 
+    isLoading: empLoading, 
+    error: empError 
+  } = useWorkers();
+  
+  const [mappedDocuments, setMappedDocuments] = useState<Document[]>([]);
   const [activeTab, setActiveTab] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("Todos");
@@ -153,6 +138,7 @@ export default function DocumentosPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   // Estados para paginação
   const [currentPage, setCurrentPage] = useState(1);
@@ -168,63 +154,51 @@ export default function DocumentosPage() {
     tags: ""
   });
   
-  // Carregar funcionários e documentos
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        console.log('Buscando funcionários...');
-        const response = await workerService.getAllWorkers();
-        console.log('Funcionários carregados:', response.data);
-        setEmployees(response.data);
-      } catch (error) {
-        console.error('Erro ao buscar funcionários:', error);
-        setError('Falha ao carregar funcionários. Verifique se o serviço de funcionários está disponível.');
-      }
-    };
-
-    fetchEmployees();
-    fetchDocuments(); // Buscar documentos usando nosso hook
-  }, [fetchDocuments, setError]);
-
-  // Função para mapear documentos para o formato exigido pela interface
-  const mapDocuments = useCallback((docs: IDocument[]) => {
-    console.log('Mapeando documentos:', docs);
-    console.log('Funcionários disponíveis:', employees);
-
-    const mapped = docs.map(doc => {
-      const employee = employees.find(emp => emp._id === doc.employeeId);
-
-      return {
-        ...doc,
-        employee: employee ? employee.name : doc.employee || 'N/A',
-        department: employee ? employee.department : doc.department || 'N/A',
-        uploadDate: doc.createdAt ? new Date(doc.createdAt) : undefined,
-        expiryDate: doc.expiryDate ? new Date(doc.expiryDate) : undefined,
-        size: doc.size || 0,
-        type: doc.type || 'Outros',
-        tags: doc.tags || [],
-      };
-    });
-
-    console.log('Documentos mapeados:', mapped);
-    setMappedDocuments(mapped);
-  }, [employees]);
+  // Adicionar uma ref para rastrear a mudança de employeeId sem causar re-renderização
+  const previousEmployeeIdRef = useRef('');
   
-  // Mapear documentos sempre que a lista de funcionários ou documentos mudar
+  // Mapear documentos da API para o formato usado na interface
   useEffect(() => {
-    if (documents.length > 0 && employees.length > 0) {
-      console.log('Mapeando documentos com funcionários...');
-      mapDocuments(documents);
-    }
-  }, [documents, employees, mapDocuments]);
-
-  // Filtros e funções
-  const filteredDocuments = mappedDocuments.filter(doc => {
-    const matchesSearch = 
-      doc.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (doc.employee && doc.employee.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (doc.tags && doc.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())));
+    if (!apiDocuments || !employees) return;
     
+    try {
+      const mapped = apiDocuments.map(doc => {
+        const employee = employees.find(emp => emp._id === doc.workerId);
+        
+        return {
+          _id: doc._id || '',  // Ensure _id is always a string, not undefined
+          name: doc.title || '',
+          type: doc.category || '',
+          employee: employee?.name || 'N/A',
+          employeeId: doc.workerId || '',
+          department: employee?.department || '',
+          uploadDate: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'N/A',
+          expiryDate: doc.expirationDate ? new Date(doc.expirationDate).toLocaleDateString() : 'N/A',
+          size: doc.fileSize?.toString() || '0',
+          fileType: (doc.mimeType && doc.mimeType.split('/')[1]) || 'unknown',
+          path: doc.filePath || '',
+          tags: doc.tags || []
+        };
+      });
+      
+      setMappedDocuments(mapped);
+    } catch (err) {
+      console.error('Erro ao mapear documentos:', err);
+      setError('Falha ao processar documentos');
+    }
+  }, [apiDocuments, employees]);
+  
+  // Filtra documentos com base nos filtros
+  const filteredDocuments = mappedDocuments.filter(doc => {
+    if (!doc) return false;
+    
+    // Filtro por texto de busca com verificação de segurança
+    const matchesSearch = 
+      (doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (doc.employee?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+      (doc.tags?.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase())) || false);
+    
+    // Filtro por tipo na aba atual
     const matchesTab = 
       activeTab === "todos" || 
       (activeTab === "contratos" && doc.type === "Contrato de Trabalho") ||
@@ -232,30 +206,61 @@ export default function DocumentosPage() {
       (activeTab === "admissao" && doc.type === "Documento de Admissão") ||
       (activeTab === "demissao" && doc.type === "Documento de Demissão");
     
+    // Filtro por tipo selecionado
     const matchesType = 
       selectedType === "Todos" || doc.type === selectedType;
     
+    // Filtro por departamento
     const matchesDept = 
       selectedDepartment === "Todos" || doc.department === selectedDepartment;
     
     return matchesSearch && matchesTab && matchesType && matchesDept;
   });
-
+  
+  // Cálculos para paginação
   const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedDocuments = filteredDocuments.slice(startIndex, startIndex + itemsPerPage);
-
+  
+  // Verificar se a página atual existe após filtragem
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
       setCurrentPage(1);
     }
   }, [filteredDocuments, currentPage, totalPages]);
-
+  
+  // Função para obter o ícone do tipo de arquivo
+  const getFileIcon = (fileType: string) => {
+    switch(fileType.toLowerCase()) {
+      case 'pdf':
+        return <FileText className="h-5 w-5 text-red-500" />;
+      case 'jpg':
+      case 'png':
+      case 'jpeg':
+        return <FileImage className="h-5 w-5 text-blue-500" />;
+      case 'doc':
+      case 'docx':
+        return <FileText className="h-5 w-5 text-blue-700" />;
+      case 'zip':
+      case 'rar':
+        return <FileArchive className="h-5 w-5 text-yellow-500" />;
+      default:
+        return <File className="h-5 w-5 text-gray-500" />;
+    }
+  }
+  
+  // Função para obter o ícone do tipo de documento
+  const getDocTypeIcon = (docType: string) => {
+    const type = documentTypes.find(t => t.label === docType);
+    return type ? type.icon : File;
+  }
+  
   // Função para visualizar documento
-  const handleViewDocument = (doc: IDocument) => {
+  const handleViewDocument = (doc: Document) => {
     try {
       console.log('Visualizando documento:', doc._id);
-      window.open(`/api/documents/${doc._id}/view`, '_blank');
+      // Use a API de download em vez do caminho direto
+      window.open(`/api/documents/download/${doc._id}`, '_blank');
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
       setError('Não foi possível visualizar o documento.');
@@ -263,30 +268,32 @@ export default function DocumentosPage() {
   };
   
   // Função para baixar documento
-  const handleDownloadDocument = (doc: IDocument) => {
+  const handleDownloadDocument = (doc: Document) => {
     try {
       console.log('Baixando documento:', doc._id);
-      window.open(`/api/documents/${doc._id}/download`, '_blank');
+      // Use a API de download com parâmetro para forçar o download
+      window.open(`/api/documents/download/${doc._id}?download=true`, '_blank');
     } catch (error) {
       console.error('Erro ao baixar documento:', error);
       setError('Não foi possível baixar o documento.');
     }
   };
   
-  // Para excluir um documento
+  // Função para excluir documento usando o hook
   const handleDeleteDocument = async (docId: string) => {
+    console.log('ID do documento:', docId);
     if (!confirm('Tem certeza que deseja excluir este documento?')) return;
   
     try {
       await deleteDocument(docId);
-      alert('Documento excluído com sucesso!');
+      refetchDocuments(); // Recarregar documentos após excluir
     } catch (error) {
       console.error('Erro ao excluir documento:', error);
       setError('Falha ao excluir o documento.');
     }
   }
   
-  // Para o upload de documentos
+  // Função para fazer upload de novo documento usando o hook
   const handleUploadDocument = async () => {
     if (!selectedFile || !newDocument.type || !newDocument.employeeId) {
       setError('Por favor, preencha todos os campos obrigatórios e selecione um arquivo.');
@@ -294,32 +301,30 @@ export default function DocumentosPage() {
     }
     
     setUploading(true);
+    setError(null);
     
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('name', newDocument.name || selectedFile.name);
-      formData.append('type', newDocument.type);
-      formData.append('employeeId', newDocument.employeeId);
-      formData.append('employee', newDocument.employee);
-      formData.append('department', newDocument.department);
+      formData.append('title', newDocument.name || selectedFile.name);
+      formData.append('category', newDocument.type);
+      formData.append('workerId', newDocument.employeeId);
+      
+      if (newDocument.department) {
+        formData.append('department', newDocument.department);
+      }
       
       if (newDocument.expiryDate) {
-        formData.append('expiryDate', newDocument.expiryDate);
+        formData.append('expirationDate', newDocument.expiryDate);
       }
       
       if (newDocument.tags) {
-        formData.append('tags', newDocument.tags);
+        const tags = newDocument.tags.split(',').map(tag => tag.trim());
+        formData.append('tags', JSON.stringify(tags));
       }
       
-      console.log('Enviando documento:', {
-        file: selectedFile.name,
-        type: newDocument.type,
-        employeeId: newDocument.employeeId,
-        employee: newDocument.employee
-      });
-      
-      await uploadDocument(formData);
+      await createDocument(formData);
+      await refetchDocuments(); // Recarregar documentos após upload
       
       setUploadDialogOpen(false);
       setSelectedFile(null);
@@ -334,37 +339,56 @@ export default function DocumentosPage() {
       });
       
       alert('Documento enviado com sucesso!');
-      
-      // Recarregar documentos
-      fetchDocuments();
-      
     } catch (error) {
       console.error('Erro ao enviar documento:', error);
       setError('Falha ao enviar o documento. Por favor, tente novamente.');
     } finally {
       setUploading(false);
     }
-  };
-
-  // Atualiza os campos quando o funcionário é selecionado
-  const handleEmployeeSelect = (employeeId: string) => {
-    const employee = employees.find(emp => emp._id === employeeId);
+  }
+  
+  // Modificar a função handleEmployeeSelect para uma implementação estável
+  const handleEmployeeSelect = useCallback((employeeId: string) => {
+    // Verificar se o ID é o mesmo que já foi processado anteriormente
+    if (!employeeId || employeeId === previousEmployeeIdRef.current) {
+      return;
+    }
+    
+    // Atualizar a referência para o valor atual
+    previousEmployeeIdRef.current = employeeId;
+    
+    const employee = employees?.find(emp => emp._id === employeeId);
     if (employee) {
-      setNewDocument({
-        ...newDocument,
+      setNewDocument(prev => ({
+        ...prev,
         employeeId,
         employee: employee.name,
-        department: employee.department || ""
-      });
+        department: employee.department || prev.department
+      }));
     }
-  }
+  }, [employees]); // Remover a dependência newDocument.employeeId
+  
+  // Formatação de tamanho de arquivo
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' bytes';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
+  
+  // Detectar estado de carregamento geral
+  const loading = docsLoading || empLoading;
+  
+  // Combinar erros dos hooks
+  useEffect(() => {
+    if (docsError) setError(docsError);
+    if (empError) setError(empError);
+  }, [docsError, empError]);
 
   return (
     <div className="space-y-6 p-6">
       {/* Mensagem de erro */}
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4 flex items-center">
-          <AlertTriangle className="mr-2 h-5 w-5" />
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
           {error}
           <button 
             className="absolute top-0 right-0 px-4 py-3"
@@ -470,7 +494,7 @@ export default function DocumentosPage() {
                           <TableRow key={doc._id}>
                             <TableCell>
                               <div className="flex items-center space-x-2">
-                                {getFileIcon(doc.fileType || '')}
+                                {getFileIcon(doc.fileType)}
                                 <span className="font-medium">{doc.name}</span>
                               </div>
                               <div className="flex mt-1 space-x-1">
@@ -484,7 +508,7 @@ export default function DocumentosPage() {
                                 ))}
                               </div>
                               <div className="mt-1 text-xs text-gray-500">
-                                {doc.size}
+                                {formatFileSize(parseInt(doc.size))}
                               </div>
                             </TableCell>
                             <TableCell>{doc.employee}</TableCell>
@@ -498,17 +522,13 @@ export default function DocumentosPage() {
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 <Calendar className="h-4 w-4 text-gray-400" />
-                                <span>
-                                  {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString('pt-BR') : 'N/A'}
-                                </span>
+                                <span>{doc.uploadDate}</span>
                               </div>
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
                                 <Clock className="h-4 w-4 text-gray-400" />
-                                <span>
-                                  {doc.expiryDate ? new Date(doc.expiryDate).toLocaleDateString('pt-BR') : 'N/A'}
-                                </span>
+                                <span>{doc.expiryDate}</span>
                               </div>
                             </TableCell>
                             <TableCell>
@@ -691,14 +711,8 @@ export default function DocumentosPage() {
                   className="hidden" 
                   accept=".pdf,.docx,.doc,.jpg,.jpeg,.png"
                   onChange={(e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                      setSelectedFile(files[0]);
-                      // Também define o nome do documento como o nome do arquivo
-                      setNewDocument(prev => ({
-                        ...prev,
-                        name: files[0].name
-                      }));
+                    if (e.target.files && e.target.files[0]) {
+                      setSelectedFile(e.target.files[0]);
                     }
                   }}
                 />
@@ -727,18 +741,21 @@ export default function DocumentosPage() {
             <div className="space-y-2">
               <label htmlFor="employee" className="text-sm font-medium">Funcionário</label>
               <Select
-                value={newDocument.employeeId}
+                value={newDocument.employeeId || ""}
                 onValueChange={handleEmployeeSelect}
               >
                 <SelectTrigger id="employee">
                   <SelectValue placeholder="Selecione o funcionário" />
                 </SelectTrigger>
                 <SelectContent>
-                  {employees.map(employee => (
-                    <SelectItem key={`modal-employee-${employee._id}`} value={employee._id}>
+                  {Array.isArray(employees) ? employees.map(employee => (
+                    <SelectItem 
+                      key={`modal-employee-${employee._id || 'unknown'}`} 
+                      value={employee._id || ''} // Garantir que o valor nunca será undefined
+                    >
                       {employee.name}
                     </SelectItem>
-                  ))}
+                  )) : null}
                 </SelectContent>
               </Select>
             </div>

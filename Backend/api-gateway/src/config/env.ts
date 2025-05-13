@@ -82,7 +82,8 @@ export const env = {
   RATE_LIMIT_MAX: process.env.RATE_LIMIT_MAX ? Number(process.env.RATE_LIMIT_MAX) : undefined,
   AUTH_RATE_LIMIT_MAX: process.env.AUTH_RATE_LIMIT_MAX ? Number(process.env.AUTH_RATE_LIMIT_MAX) : undefined,
   API_KEY: process.env.API_KEY || '',
-  APP_NAME: process.env.APP_NAME || 'api-gateway'
+  APP_NAME: process.env.APP_NAME || 'api-gateway',
+  serviceAutostart: process.env.SERVICE_AUTOSTART === 'true' || false,
 };
 export const isProd = env.NODE_ENV === 'production';
 export const isDev = env.NODE_ENV === 'development';

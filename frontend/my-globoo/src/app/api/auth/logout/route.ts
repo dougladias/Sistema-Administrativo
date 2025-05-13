@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import axios from 'axios';
 
 // URL base para o serviço de autenticação
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:4010/api/auth';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:4002/api/auth';
 
 export async function POST(req: NextRequest) {
   try {

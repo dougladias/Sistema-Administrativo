@@ -68,7 +68,7 @@ export function createApp() {
     res.json({ 
       message: 'API Gateway funcionando!',
       versao: '1.0.0',
-      endpoints: ['/api/workers', '/api/auth', '/api/admin']
+      endpoints: ['/api/workers', '/api/auth', '/api/documents'] 
     });
   });
 
@@ -92,161 +92,7 @@ export function createApp() {
     });
   });
 
-  // ROTAS AUTH - Definidas diretamente para contornar o problema
-  
-  // Rota de registro
-  app.post('/api/auth/register', async (req, res) => {
-    try {
-      logger.debug('Processando registro diretamente');
-      const result = await httpClient.post(`${env.AUTH_SERVICE_URL}/api/auth/register`, req.body);
-      res.status(201).json(result);
-    } catch (error) {
-      logger.error('Erro ao processar registro:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao processar registro',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota de login
-  app.post('/api/auth/login', async (req, res) => {
-    try {
-      logger.debug('Processando login diretamente');
-      const result = await httpClient.post(`${env.AUTH_SERVICE_URL}/api/auth/login`, req.body);
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao processar login:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao processar login',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota refresh token
-  app.post('/api/auth/refresh-token', async (req, res) => {
-    try {
-      logger.debug('Processando refresh token diretamente');
-      const result = await httpClient.post(`${env.AUTH_SERVICE_URL}/api/auth/refresh-token`, req.body);
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao processar refresh token:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao processar refresh token',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota validate token
-  app.post('/api/auth/validate-token', async (req, res) => {
-    try {
-      logger.debug('Validando token diretamente');
-      const result = await httpClient.post(`${env.AUTH_SERVICE_URL}/api/auth/validate-token`, req.body);
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao processar validação de token:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao processar validação de token',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota para obter perfil do usuário
-  app.get('/api/auth/me', async (req, res) => {
-    try {
-      logger.debug('Obtendo perfil do usuário diretamente');
-      const result = await httpClient.get(`${env.AUTH_SERVICE_URL}/api/auth/me`, {
-        headers: {
-          Authorization: req.headers.authorization
-        }
-      });
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao obter perfil do usuário:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao obter perfil do usuário',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota de logout
-  app.post('/api/auth/logout', async (req, res) => {
-    try {
-      logger.debug('Processando logout diretamente');
-      const result = await httpClient.post(`${env.AUTH_SERVICE_URL}/api/auth/logout`, req.body, {
-        headers: {
-          Authorization: req.headers.authorization
-        }
-      });
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao processar logout:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao processar logout',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Funções admin
-  app.get('/api/auth/users', async (req, res) => {
-    try {
-      logger.debug('Obtendo lista de usuários diretamente');
-      const result = await httpClient.get(`${env.AUTH_SERVICE_URL}/api/auth/users`, {
-        headers: {
-          Authorization: req.headers.authorization
-        }
-      });
-      res.json(result);
-    } catch (error) {
-      logger.error('Erro ao obter lista de usuários:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      res.status(500).json({
-        success: false,
-        error: {
-          code: 'AUTH_ERROR',
-          message: 'Erro ao obter lista de usuários',
-          details: errorMessage
-        }
-      });
-    }
-  });
-
-  // Rota para listar todas as rotas disponíveis
+  // Rotas para listar todas as rotas disponíveis
   app.get('/routes', (req, res) => {
     // Construir uma lista de rotas a partir do _router do Express
     const availableRoutes = [];
@@ -256,16 +102,40 @@ export function createApp() {
     availableRoutes.push('GET /health');
     availableRoutes.push('GET /services');
     availableRoutes.push('GET /routes');
+    availableRoutes.push('POST /api');
     
     // Rotas de autenticação
-    availableRoutes.push('POST /api/auth/register');
+    availableRoutes.push('GET /api/auth');
     availableRoutes.push('POST /api/auth/login');
-    availableRoutes.push('POST /api/auth/refresh-token');
-    availableRoutes.push('POST /api/auth/validate-token');
-    availableRoutes.push('GET /api/auth/me');
-    availableRoutes.push('POST /api/auth/logout');
-    availableRoutes.push('GET /api/auth/users');
+    availableRoutes.push('POST /api/auth/register');
+    availableRoutes.push('GET /api/auth/refresh');
+    availableRoutes.push('POST /api/auth/logout');  
+
+    // Rotas de Worker
+    availableRoutes.push('GET /api/workers');
+    availableRoutes.push('POST /api/workers');
+    availableRoutes.push('GET /api/workers/:id');
+    availableRoutes.push('PUT /api/workers/:id');
+    availableRoutes.push('DELETE /api/workers/:id');
+    availableRoutes.push('POST /api/workers/:id/activate');
+    availableRoutes.push('POST /api/workers/:id/deactivate');    
+    availableRoutes.push('GET /api/workers/:id/documents');
+    availableRoutes.push('GET /api/workers/:id/health');  
     
+    // Rotas de Documentos
+    availableRoutes.push('GET /api/documents'); 
+    availableRoutes.push('POST /api/documents');
+    availableRoutes.push('GET /api/documents/:id');
+    availableRoutes.push('PUT /api/documents/:id');
+    availableRoutes.push('DELETE /api/documents/:id');
+    availableRoutes.push('GET /api/documents/:id/download');
+    availableRoutes.push('GET /api/documents/:id/view');
+    availableRoutes.push('GET /api/documents/worker/:workerId');
+    availableRoutes.push('GET /api/documents/department/:departmentId');    
+    availableRoutes.push('GET /api/documents/expiring');
+    availableRoutes.push('POST /api/documents/:id/status');
+    availableRoutes.push('POST /api/documents/:id/validate');
+
     res.json({
       count: availableRoutes.length,
       routes: availableRoutes,

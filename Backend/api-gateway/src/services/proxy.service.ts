@@ -102,7 +102,7 @@ export function routeBasedProxy(req: Request, res: Response, next: NextFunction)
     const path = req.path;
 
     // Identificar o serviço com base no caminho
-    const serviceId = path.split('/')[2]; // Exemplo: /api/documents -> "documents"
+    const serviceId = path.split('/')[2]; 
 
     let targetUrl = '';
     if (serviceId === 'documents') {
@@ -122,7 +122,7 @@ export function routeBasedProxy(req: Request, res: Response, next: NextFunction)
       target: targetUrl,
       changeOrigin: true,
       pathRewrite: {
-        '^/api/documents': '/api/documents', // Mantém o caminho original
+        '^/api/documents': '/api/documents', 
         '^/api/workers': '/api/workers',
         '^/api/auth': '/api/auth',
       },

@@ -25,10 +25,9 @@ class ServiceManager {
 
     // Registrar todos os serviços
     this.registerService('workers', '../../../worker-service', `http://localhost:${process.env.WORKER_SERVICE_PORT || 4014}`);
-    this.registerService('document', '../../../document-service', env.services.document);
-    this.registerService('auth', '../../../auth-service', env.services.auth);
-    this.registerService('benefits', '../../../beneficit-service', env.services.benefits);
-    // Registrar outros serviços conforme necessário
+    this.registerService('document', '../../../document-service', `http://localhost:${process.env.DOCUMENT_SERVICE_PORT || 4011}`);
+    this.registerService('auth', '../../../auth-service', `http://localhost:${process.env.AUTH_SERVICE_PORT || 4010}`);
+    this.registerService('benefits', '../../../benefit-service', `http://localhost:${process.env.BENEFIT_SERVICE_PORT || 4012}`);
   }
 
   // Registrar um novo serviço

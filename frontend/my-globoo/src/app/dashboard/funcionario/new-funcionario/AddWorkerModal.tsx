@@ -57,7 +57,7 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
       role: string;
     }) => {
       // Usar o API centralizado em vez de axios diretamente
-      const response = await api.post("/api/workers", newWorker);
+      const response = await api.post("/workers", newWorker);
       return response;
     },
     onSuccess: () => {

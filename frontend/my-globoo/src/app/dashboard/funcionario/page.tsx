@@ -83,7 +83,7 @@ export default function EmployeesPage() {
   } = useQuery<IWorker[]>({
     queryKey: ['workers'],
     queryFn: async () => {
-      const response = await api.get<IWorker[]>('/api/workers');
+      const response = await api.get<IWorker[]>('/workers');
       
       // Mapeia os dados para garantir que as datas sejam objetos Date ou null
       // Este é um ponto crítico para evitar o erro "Invalid time value"
@@ -116,7 +116,7 @@ export default function EmployeesPage() {
   // Delete worker mutation - conectando ao seu backend existente
   const deleteWorker = useMutation({
     mutationFn: async (workerId: string) => {
-      const response = await api.delete(`/api/workers/${workerId}`);
+      const response = await api.delete(`/workers/${workerId}`);
       return response;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workers"] }),
@@ -135,7 +135,7 @@ export default function EmployeesPage() {
       workerId: string;
       updates: Partial<IWorker>;
     }) => {
-      return api.put(`/api/workers/${workerId}`, updates);
+      return api.put(`/workers/${workerId}`, updates);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workers"] });

@@ -9,7 +9,7 @@ function validateConfig() {
   logger.info(`- AUTH_SERVICE_URL: ${env.AUTH_SERVICE_URL || 'NÃO DEFINIDO'}`);
   logger.info(`- WORKER_SERVICE_URL: ${env.WORKER_SERVICE_URL || 'NÃO DEFINIDO'}`);
   logger.info(`- WORKER_SERVICE_URL: ${env.DOCUMENT_SERVICE_URL || 'NÃO DEFINIDO'}`);
-  logger.info(`- PORT: ${env.PORT || 3005}`);  
+  logger.info(`- PORT: ${env.PORT || 3005}`);
   logger.info(`- NODE_ENV: ${env.NODE_ENV}`);
   
   if (!env.AUTH_SERVICE_URL || !env.WORKER_SERVICE_URL || !env.DOCUMENT_SERVICE_URL) {

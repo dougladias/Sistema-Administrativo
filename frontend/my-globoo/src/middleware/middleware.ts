@@ -1,4 +1,3 @@
-// frontend/my-globoo/src/middleware.ts
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import type { NextRequest } from 'next/server';
@@ -6,16 +5,11 @@ import type { NextRequest } from 'next/server';
 // Definir permissões por role
 const rolePermissions: Record<string, string[]> = {
   'CEO': ['dashboard', 'funcionarios', 'documentos', 'folha-pagamento', 'relatorios', 'configuracoes', 'admin'],
-  'ADMIN': ['dashboard', 'funcionarios', 'documentos', 'folha-pagamento', 'relatorios'],
-  'ASSISTENTE': ['dashboard', 'funcionarios', 'documentos']
+  'administrador': ['dashboard', 'funcionarios', 'documentos', 'folha-pagamento', 'relatorios'],
+  'assistente': ['dashboard', 'funcionarios', 'documentos']
 };
 
 export async function middleware(request: NextRequest) {
-  // Ignorar rotas de API para evitar redirecionamentos incorretos
-  if (request.nextUrl.pathname.startsWith('/api/')) {
-    return NextResponse.next();
-  }
-  
   // Obter o token JWT da sessão
   const token = await getToken({ 
     req: request,
@@ -77,12 +71,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Ignora requisições para:
-     * - Arquivos estáticos (_next/)
-     * - API routes (/api/ - mas permitimos executar o middleware primeiro)
-     * - Arquivos dentro da pasta public
-     */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/auth/:path*',
+    '/dashboard/:path*',
+    '/funcionarios/:path*', 
+    '/documentos/:path*',
+    '/folha-pagamento/:path*', 
+    '/relatorios/:path*', 
+    '/configuracoes/:path*',
+    '/admin/:path*'
   ]
 }
