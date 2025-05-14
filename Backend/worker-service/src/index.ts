@@ -1,6 +1,5 @@
 import dotenv from 'dotenv';
 dotenv.config();
-
 import app from './app';
 import { connectDB } from './config/database'; // Agora importamos do nosso arquivo próprio
 import { createLogger } from '../../shared/src/utils/logger';
@@ -37,6 +36,7 @@ const startServer = async () => {
         process.exit(0);
       });
     });
+    // Tratamento de encerramento do processo
   } catch (error) {
     logger.error('Falha ao iniciar o servidor:', error);
     process.exit(1);

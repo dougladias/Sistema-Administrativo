@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import { env } from '../config/env';
-import { authenticate, authorize } from '../middleware/auth.middleware';
 import httpClient from '../utils/http-client';
-import { logger } from '../config/logger';
+import logger from '../../../shared/src/utils/logger';
 
 const router = Router();
 
@@ -57,7 +56,7 @@ router.post('/validate-token', async (req, res, next) => {
   }
 });
 
-// Rota para logout (middleware de autenticação desativado temporariamente para testes)
+// Rota para logout 
 router.post('/logout', /* authenticate(), */ async (req, res, next) => {
   try {
     logRequest('POST', `${env.AUTH_SERVICE_URL}/api/auth/logout`, req.body);
@@ -72,7 +71,7 @@ router.post('/logout', /* authenticate(), */ async (req, res, next) => {
   }
 });
 
-// Rota para obter perfil do usuário autenticado (middleware de autenticação desativado temporariamente para testes)
+// Rota para obter perfil do usuário autenticado 
 router.get('/me', /* authenticate(), */ async (req, res, next) => {
   try {
     logRequest('GET', `${env.AUTH_SERVICE_URL}/api/auth/me`);
@@ -87,7 +86,7 @@ router.get('/me', /* authenticate(), */ async (req, res, next) => {
   }
 });
 
-// Rota para atualizar perfil do usuário (middleware de autenticação desativado temporariamente para testes)
+// Rota para atualizar perfil do usuário 
 router.put('/me', /* authenticate(), */ async (req, res, next) => {
   try {
     logRequest('PUT', `${env.AUTH_SERVICE_URL}/api/auth/me`, req.body);
@@ -102,7 +101,7 @@ router.put('/me', /* authenticate(), */ async (req, res, next) => {
   }
 });
 
-// Rota para atualizar senha (middleware de autenticação desativado temporariamente para testes)
+// Rota para atualizar senha 
 router.put('/me/password', /* authenticate(), */ async (req, res, next) => {
   try {
     logRequest('PUT', `${env.AUTH_SERVICE_URL}/api/auth/me/password`, req.body);
@@ -117,9 +116,8 @@ router.put('/me/password', /* authenticate(), */ async (req, res, next) => {
   }
 });
 
-// === Rotas Administrativas ===
 
-// Listar todos os usuários (middlewares de autenticação e autorização desativados temporariamente para testes)
+// Listar todos os usuários 
 router.get('/users', /* authenticate(), authorize(['ADMIN', 'CEO']), */ async (req, res, next) => {
   try {
     logRequest('GET', `${env.AUTH_SERVICE_URL}/api/auth/users`);
@@ -134,7 +132,7 @@ router.get('/users', /* authenticate(), authorize(['ADMIN', 'CEO']), */ async (r
   }
 });
 
-// Obter usuário por ID (middlewares de autenticação e autorização desativados temporariamente para testes)
+// Obter usuário por ID 
 router.get('/users/:id', /* authenticate(), authorize(['ADMIN', 'CEO']), */ async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -150,7 +148,7 @@ router.get('/users/:id', /* authenticate(), authorize(['ADMIN', 'CEO']), */ asyn
   }
 });
 
-// Atualizar usuário por ID (middlewares de autenticação e autorização desativados temporariamente para testes)
+// Atualizar usuário por ID 
 router.put('/users/:id', /* authenticate(), authorize(['ADMIN', 'CEO']), */ async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -166,7 +164,7 @@ router.put('/users/:id', /* authenticate(), authorize(['ADMIN', 'CEO']), */ asyn
   }
 });
 
-// Excluir usuário (middlewares de autenticação e autorização desativados temporariamente para testes)
+// Excluir usuário 
 router.delete('/users/:id', /* authenticate(), authorize(['ADMIN', 'CEO']), */ async (req, res, next) => {
   try {
     const { id } = req.params;

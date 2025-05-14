@@ -1,76 +1,123 @@
 import { Router } from 'express';
-import { routeBasedProxy } from '../services/proxy.service';
-// Update the import path to match the actual file name and location
-import { apiLimiter, authLimiter } from '../middleware/rate-limit.middleware';
-import { authenticate } from '../middleware/auth.middleware';
+import { createProxyMiddleware } from 'http-proxy-middleware';
+import { env } from '../config/env';
+import { apiLimiter } from '../middleware/rate';
+import logger from '../utils/logger';
+import { Request, Response, NextFunction } from 'express';
+import { Buffer } from 'buffer';
 
+// Extende o tipo Request para incluir o campo 'user'
+declare global {
+  namespace Express {
+    interface User {
+      id: string;
+      role: string;
+      [key: string]: any;
+    }
+    interface Request {
+      user?: User;
+    }
+  }
+}
+
+// Cria uma instância do roteador
 const router = Router();
 
-// Rota para o caminho raiz
-router.get('/', (req, res) => {
-  res.status(200).json({ message: 'API Gateway is running', status: 'UP' });
+// Middleware de logging para todas as requisições
+interface LogRequest extends Request {}
+interface LogResponse extends Response {}
+interface LogNextFunction extends NextFunction {}
+
+const logRequest = (req: LogRequest, res: LogResponse, next: LogNextFunction): void => {
+  logger.info(`${req.method} ${req.originalUrl}`);
+  next();
+};
+
+// Configuração proxy para Worker Service
+const workerServiceProxy = createProxyMiddleware({
+  target: env.WORKER_SERVICE_URL,
+  pathRewrite: { '^/api/workers': '/api/workers' },
+  changeOrigin: true,
+  logLevel: 'debug',
+  selfHandleResponse: false, 
+  logProvider: () => logger,
+  onProxyReq: (proxyReq, req, res) => {    
+    if (req.headers.authorization) {
+      proxyReq.setHeader('Authorization', req.headers.authorization);
+    }    
+    proxyReq.setHeader('x-api-gateway', 'true');    
+    if (
+      req.method === 'POST' ||
+      req.method === 'PUT' ||
+      req.method === 'PATCH'
+    ) {
+      if (req.body && Object.keys(req.body).length) {
+        const bodyData = JSON.stringify(req.body);
+        proxyReq.setHeader('Content-Type', 'application/json');
+        proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+        proxyReq.write(bodyData);
+      }
+    }    
+  },
+  onError: (err, req, res) => {
+    logger.error(`Proxy error: ${err.message}`);
+    res.status(500).json({ error: 'Serviço indisponível' });
+  }
 });
 
-// Rota de health check (não autenticada)
+// Configuração proxy para Document Service
+const documentServiceProxy = createProxyMiddleware({
+  target: env.DOCUMENT_SERVICE_URL,
+  pathRewrite: { '^/api/documents': '/api/documents' },
+  changeOrigin: true,
+  logLevel: 'debug',
+  logProvider: () => logger,
+  onProxyReq: (proxyReq, req, res) => {    
+    if (req.headers.authorization) {
+      proxyReq.setHeader('Authorization', req.headers.authorization);
+    }    
+    proxyReq.setHeader('x-api-gateway', 'true');
+  },
+  onError: (err, req, res) => {
+    logger.error(`Proxy error: ${err.message}`);
+    res.status(500).json({ error: 'Serviço indisponível' });
+  }
+});
+// Rotas públicas 
+router.use('/api/auth', logRequest, createProxyMiddleware({
+  target: env.AUTH_SERVICE_URL,
+  pathRewrite: { '^/api/auth': '/api/auth' },
+  changeOrigin: true
+}));
+
+
+
+// Rotas Serviço Worker
+router.get('/api/workers', workerServiceProxy);
+// POST 
+router.post('/api/workers', logRequest, apiLimiter, (req, res, next) => {  
+  next();
+}, workerServiceProxy);
+// PUT 
+router.put('/api/workers/:id', logRequest, apiLimiter, workerServiceProxy);
+// DELETE 
+router.delete('/api/workers/:id', logRequest, apiLimiter, workerServiceProxy);
+
+// Rotas Serviço Document terminar de Integrar
+router.use('/api/documents', logRequest, apiLimiter, documentServiceProxy);
+
+
+// Rota para verificação de saúde dos serviços (monitoramento)
 router.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', service: 'api-gateway' });
-});
-
-// Definir explicitamente quais rotas de autenticação são públicas
-const publicAuthRoutes = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh-token'];
-
-// Middleware para verificar se é uma rota pública de autenticação
-router.use('/api/auth', (req, res, next) => {
-  const isPublicRoute = publicAuthRoutes.some(route => req.path.endsWith(route));
-  
-  if (isPublicRoute) {
-    // Rota pública - aplicar apenas rate limiting mais restritivo
-    return authLimiter(req, res, next);
-  } else {
-    // Rota protegida de autenticação - requer autenticação
-    return authenticate()(req, res, next);
-  }
-});
-
-// Proxy para as rotas de autenticação
-router.use('/api/auth', routeBasedProxy);
-
-// Todas as outras rotas da API requerem autenticação
-router.use('/api', apiLimiter, authenticate, routeBasedProxy);
-
-// Adicionar uma rota para forçar a reinicialização do serviço worker (apenas para administradores)
-import type { Request, Response } from 'express';
-
-type RestartWorkerRequest = Request;
-type RestartWorkerResponse = Response;
-
-router.post(
-  '/admin/services/worker/restart',
-  authenticate,
-  hasRole(['admin']),
-  async (req: RestartWorkerRequest, res: RestartWorkerResponse): Promise<void> => {
-    // Esta rota seria implementada para reiniciar o serviço worker
-    // A implementação real envolveria importar a função startWorkerService e chamá-la
-    res.status(200).json({ message: 'Worker service restart initiated' });
-  }
-);
-
-// Rotas do serviço de documentos
-router.use('/api/documents', apiLimiter, authenticate, routeBasedProxy);
-router.use('/api/templates', apiLimiter, authenticate, routeBasedProxy);
-
-// É possível criar rotas específicas para operações mais sensíveis
-router.delete('/api/documents/:id', authenticate, hasRole(['admin', 'manager']), routeBasedProxy);
-
-function hasRole(roles: string[]): import("express-serve-static-core").RequestHandler {
-  return (req, res, next) => {
-    // Supondo que o middleware de autenticação adiciona o usuário ao req.user
-    const user = req.user as { role?: string } | undefined;
-    if (!user || !user.role || !roles.includes(user.role)) {
-      return res.status(403).json({ message: 'Forbidden: insufficient role' });
+  res.json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    services: {
+      worker: `${env.WORKER_SERVICE_URL}`,
+      document: `${env.DOCUMENT_SERVICE_URL}`,
+      auth: `${env.AUTH_SERVICE_URL}`
     }
-    next();
-  };
-}
+  });
+});
 
 export default router;

@@ -40,13 +40,6 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { 
-  Select,
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select"
-import { 
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -73,8 +66,8 @@ import {
   ChevronRight
 } from 'lucide-react'
 
-// Interface para o documento
-interface Document {
+// Interface para o documento na visualização do modelo (ViewModel)
+interface DocumentViewModel {
   _id: string;
   name: string;
   type: string;
@@ -88,7 +81,6 @@ interface Document {
   path: string;
   tags: string[];
 }
-
 
 // Lista de tipos de documentos
 const documentTypes = [
@@ -130,7 +122,7 @@ export default function DocumentosPage() {
     error: empError 
   } = useWorkers();
   
-  const [mappedDocuments, setMappedDocuments] = useState<Document[]>([]);
+  const [mappedDocuments, setMappedDocuments] = useState<DocumentViewModel[]>([]);
   const [activeTab, setActiveTab] = useState("todos");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedType, setSelectedType] = useState("Todos");
@@ -154,84 +146,203 @@ export default function DocumentosPage() {
     tags: ""
   });
   
-  // Adicionar uma ref para rastrear a mudança de employeeId sem causar re-renderização
+  // Refs para evitar loops e rastrear estados
   const previousEmployeeIdRef = useRef('');
+  const dataProcessedRef = useRef(false);
+  const preventRecursiveUpdatesRef = useRef(false); 
   
-  // Mapear documentos da API para o formato usado na interface
+  // MELHORIA 1: Log de dados para depuração
   useEffect(() => {
-    if (!apiDocuments || !employees) return;
-    
-    try {
-      const mapped = apiDocuments.map(doc => {
-        const employee = employees.find(emp => emp._id === doc.workerId);
-        
-        return {
-          _id: doc._id || '',  // Ensure _id is always a string, not undefined
-          name: doc.title || '',
-          type: doc.category || '',
-          employee: employee?.name || 'N/A',
-          employeeId: doc.workerId || '',
-          department: employee?.department || '',
-          uploadDate: doc.createdAt ? new Date(doc.createdAt).toLocaleDateString() : 'N/A',
-          expiryDate: doc.expirationDate ? new Date(doc.expirationDate).toLocaleDateString() : 'N/A',
-          size: doc.fileSize?.toString() || '0',
-          fileType: (doc.mimeType && doc.mimeType.split('/')[1]) || 'unknown',
-          path: doc.filePath || '',
-          tags: doc.tags || []
-        };
-      });
-      
-      setMappedDocuments(mapped);
-    } catch (err) {
-      console.error('Erro ao mapear documentos:', err);
-      setError('Falha ao processar documentos');
+    if (apiDocuments && employees) {
+      console.log(`API Documentos: ${apiDocuments.length} documentos carregados`);
+      console.log(`Funcionários: ${employees.length} funcionários carregados`);
     }
   }, [apiDocuments, employees]);
   
-  // Filtra documentos com base nos filtros
-  const filteredDocuments = mappedDocuments.filter(doc => {
-    if (!doc) return false;
-    
-    // Filtro por texto de busca com verificação de segurança
-    const matchesSearch = 
-      (doc.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (doc.employee?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
-      (doc.tags?.some(tag => tag?.toLowerCase().includes(searchTerm.toLowerCase())) || false);
-    
-    // Filtro por tipo na aba atual
-    const matchesTab = 
-      activeTab === "todos" || 
-      (activeTab === "contratos" && doc.type === "Contrato de Trabalho") ||
-      (activeTab === "atestados" && doc.type === "Atestado Médico") ||
-      (activeTab === "admissao" && doc.type === "Documento de Admissão") ||
-      (activeTab === "demissao" && doc.type === "Documento de Demissão");
-    
-    // Filtro por tipo selecionado
-    const matchesType = 
-      selectedType === "Todos" || doc.type === selectedType;
-    
-    // Filtro por departamento
-    const matchesDept = 
-      selectedDepartment === "Todos" || doc.department === selectedDepartment;
-    
-    return matchesSearch && matchesTab && matchesType && matchesDept;
-  });
-  
-  // Cálculos para paginação
-  const totalPages = Math.ceil(filteredDocuments.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedDocuments = filteredDocuments.slice(startIndex, startIndex + itemsPerPage);
-  
-  // Verificar se a página atual existe após filtragem
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
+  // Interface atualizada para documentos vindos da API
+  interface ApiDocument {
+    _id: string;
+    name: string;               // Nome do documento (em vez de title)
+    category: string;           // Categoria como "OUTROS"
+    type: string;               // Tipo como "Documento de Admissão" 
+    status: string;             // Status como "PENDENTE"
+    employeeId: string;         // ID do funcionário (em vez de workerId)
+    employee: string;           // Nome do funcionário (já vem da API)
+    department: string;         // Departamento (já vem da API)
+    uploadDate: string;         // Data de upload (em vez de createdAt)
+    expiryDate: string;         // Data de validade (em vez de expirationDate)
+    size: number;               // Tamanho em bytes
+    fileType: string;           // Tipo de arquivo (em vez de mimeType)
+    path: string;               // Caminho do arquivo (em vez de filePath)
+    tags: string[];             // Tags do documento
+    __v?: number;               // Campo do MongoDB (podemos ignorar)
+  }
+
+  // Função de mapeamento aprimorada para garantir renderização correta
+  const mapDocumentsToViewModel = useCallback((docs: ApiDocument[]) => {
+    if (!docs || !Array.isArray(docs)) {
+      console.error("Documentos inválidos para mapeamento", { docs });
+      return [];
     }
-  }, [filteredDocuments, currentPage, totalPages]);
+    
+    try {
+      return docs.map(doc => {
+        if (!doc) return null;
+        
+        // Mapeamento direto já que a API fornece todos os dados
+        const viewModel: DocumentViewModel = {
+          _id: doc._id,
+          name: doc.name || 'Sem título',
+          type: doc.type || 'Outros',
+          employee: doc.employee || 'Não atribuído',
+          employeeId: doc.employeeId || '',
+          department: doc.department || 'Não atribuído',
+          uploadDate: doc.uploadDate 
+            ? new Date(doc.uploadDate).toLocaleDateString('pt-BR') 
+            : 'Data desconhecida',
+          expiryDate: doc.expiryDate 
+            ? new Date(doc.expiryDate).toLocaleDateString('pt-BR') 
+            : 'Sem data',
+          size: doc.size?.toString() || '0',
+          fileType: doc.fileType || 'unknown',
+          path: doc.path || '',
+          tags: Array.isArray(doc.tags) ? doc.tags : []
+        };
+        
+        return viewModel;
+      }).filter(Boolean) as DocumentViewModel[];
+    } catch (err) {
+      console.error("Erro no mapeamento de documentos:", err);
+      return [];
+    }
+  }, []);
+  
+  // MELHORIA 3: Gestão de dados separada
+  useEffect(() => {
+    // Verificar se temos dados e se ainda não processamos
+    if (!apiDocuments || !employees) {
+      return;
+    }
+    
+    // Verificar se há qualquer dado para processar
+    if (apiDocuments.length === 0) {
+      console.log("Nenhum documento retornado da API");
+      setMappedDocuments([]);
+      return;
+    }
+    
+    try {
+      console.log("Iniciando mapeamento de documentos...");
+      
+      const mapped = mapDocumentsToViewModel(apiDocuments as unknown as ApiDocument[]);    
+      console.log(`Mapeamento concluído: ${mapped.length} documentos processados`);
+      
+      // Atualizar o estado apenas se houver dados válidos
+      if (mapped.length > 0) {
+        setMappedDocuments(mapped);
+        dataProcessedRef.current = true;
+      } else if (apiDocuments.length > 0) {
+        console.warn("Mapeamento produziu array vazio, mesmo com documentos API disponíveis");
+      }
+    } catch (err) {
+      console.error("Erro ao processar documentos:", err);
+      setError('Falha ao processar documentos. Tente recarregar a página.');
+    }
+  }, [apiDocuments, employees, mapDocumentsToViewModel]);
+  
+  // MELHORIA 4: Filtragem robusta
+  const getFilteredDocuments = useCallback(() => {
+    // Verificar se há dados para filtrar
+    if (!mappedDocuments || mappedDocuments.length === 0) {
+      console.log("Sem documentos para filtrar");
+      return [];
+    }
+    
+    try {
+      return mappedDocuments.filter(doc => {
+        // Se não temos um documento válido, pulamos
+        if (!doc || typeof doc !== 'object') return false;
+        
+        // Filtro por texto de busca
+        const matchesSearch = searchTerm === "" ? true : (
+          ((doc.name || '').toLowerCase().includes(searchTerm.toLowerCase())) ||
+          ((doc.employee || '').toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (Array.isArray(doc.tags) && doc.tags.some(tag => 
+            tag && tag.toLowerCase().includes(searchTerm.toLowerCase())
+          ))
+        );
+        
+        // Filtro por tipo na aba atual
+        const matchesTab = 
+          activeTab === "todos" || 
+          (activeTab === "contratos" && doc.type === "Contrato de Trabalho") ||
+          (activeTab === "atestados" && doc.type === "Atestado Médico") ||
+          (activeTab === "admissao" && doc.type === "Documento de Admissão") ||
+          (activeTab === "demissao" && doc.type === "Documento de Demissão");
+        
+        // Filtro por tipo selecionado
+        const matchesType = selectedType === "Todos" || doc.type === selectedType;
+        
+        // Filtro por departamento
+        const matchesDept = selectedDepartment === "Todos" || doc.department === selectedDepartment;
+        
+        return matchesSearch && matchesTab && matchesType && matchesDept;
+      });
+    } catch (err) {
+      console.error("Erro na filtragem de documentos:", err);
+      return [];
+    }
+  }, [mappedDocuments, searchTerm, activeTab, selectedType, selectedDepartment]);
+  
+  // MELHORIA 5: Cálculos de paginação mais seguros (corrigido)
+  const getPaginationData = useCallback(() => {
+    const filteredDocs = getFilteredDocuments();
+    const totalDocs = filteredDocs.length;
+    const totalPages = Math.max(1, Math.ceil(totalDocs / itemsPerPage));
+    
+    // Ajustar página atual se necessário, mas não atualizamos o estado aqui
+    // apenas retornamos o valor correto
+    let safePage = currentPage;
+    if (safePage > totalPages) {
+      safePage = Math.max(1, totalPages);
+    }
+    
+    const startIndex = (safePage - 1) * itemsPerPage;
+    const paginatedDocs = filteredDocs.slice(startIndex, startIndex + itemsPerPage);
+    
+    return {
+      filteredDocs,
+      paginatedDocs,
+      totalPages,
+      startIndex,
+      totalItems: totalDocs,
+      currentPage: safePage
+    };
+  }, [getFilteredDocuments, currentPage, itemsPerPage]);
+
+  // Novo useEffect para ajustar a página atual quando necessário
+  useEffect(() => {
+    const { totalPages } = getPaginationData();
+    
+    if (currentPage > totalPages && !preventRecursiveUpdatesRef.current) {
+      preventRecursiveUpdatesRef.current = true;
+      
+      setTimeout(() => {
+        setCurrentPage(Math.max(1, totalPages));
+        preventRecursiveUpdatesRef.current = false;
+      }, 0);
+    }
+  }, [getPaginationData, currentPage]);
+  
+  // MELHORIA 6: Logs para depuração
+  useEffect(() => {
+    const paginationData = getPaginationData();
+    console.log(`Documentos filtrados: ${paginationData.filteredDocs.length}, Página: ${paginationData.currentPage}/${paginationData.totalPages}`);
+  }, [getPaginationData]);
   
   // Função para obter o ícone do tipo de arquivo
-  const getFileIcon = (fileType: string) => {
-    switch(fileType.toLowerCase()) {
+  const getFileIcon = useCallback((fileType: string) => {
+    switch(String(fileType).toLowerCase()) {
       case 'pdf':
         return <FileText className="h-5 w-5 text-red-500" />;
       case 'jpg':
@@ -247,114 +358,63 @@ export default function DocumentosPage() {
       default:
         return <File className="h-5 w-5 text-gray-500" />;
     }
-  }
+  }, []);
   
   // Função para obter o ícone do tipo de documento
-  const getDocTypeIcon = (docType: string) => {
+  const getDocTypeIcon = useCallback((docType: string) => {
     const type = documentTypes.find(t => t.label === docType);
     return type ? type.icon : File;
-  }
+  }, []);
   
   // Função para visualizar documento
-  const handleViewDocument = (doc: Document) => {
+  const handleViewDocument = useCallback((doc: DocumentViewModel) => {
     try {
-      console.log('Visualizando documento:', doc._id);
-      // Use a API de download em vez do caminho direto
       window.open(`/api/documents/download/${doc._id}`, '_blank');
     } catch (error) {
       console.error('Erro ao visualizar documento:', error);
       setError('Não foi possível visualizar o documento.');
     }
-  };
+  }, []);
   
   // Função para baixar documento
-  const handleDownloadDocument = (doc: Document) => {
+  const handleDownloadDocument = useCallback((doc: DocumentViewModel) => {
     try {
-      console.log('Baixando documento:', doc._id);
-      // Use a API de download com parâmetro para forçar o download
       window.open(`/api/documents/download/${doc._id}?download=true`, '_blank');
     } catch (error) {
       console.error('Erro ao baixar documento:', error);
       setError('Não foi possível baixar o documento.');
     }
-  };
+  }, []);
   
   // Função para excluir documento usando o hook
   const handleDeleteDocument = async (docId: string) => {
-    console.log('ID do documento:', docId);
     if (!confirm('Tem certeza que deseja excluir este documento?')) return;
   
     try {
       await deleteDocument(docId);
-      refetchDocuments(); // Recarregar documentos após excluir
+      
+      // Dar tempo para a API processar
+      setTimeout(async () => {
+        await refetchDocuments();
+        
+        // Opcional: remover o documento da lista local
+        setMappedDocuments(prev => prev.filter(doc => doc._id !== docId));
+      }, 500);
     } catch (error) {
       console.error('Erro ao excluir documento:', error);
       setError('Falha ao excluir o documento.');
     }
-  }
+  };
   
-  // Função para fazer upload de novo documento usando o hook
-  const handleUploadDocument = async () => {
-    if (!selectedFile || !newDocument.type || !newDocument.employeeId) {
-      setError('Por favor, preencha todos os campos obrigatórios e selecione um arquivo.');
-      return;
-    }
-    
-    setUploading(true);
-    setError(null);
-    
-    try {
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('title', newDocument.name || selectedFile.name);
-      formData.append('category', newDocument.type);
-      formData.append('workerId', newDocument.employeeId);
-      
-      if (newDocument.department) {
-        formData.append('department', newDocument.department);
-      }
-      
-      if (newDocument.expiryDate) {
-        formData.append('expirationDate', newDocument.expiryDate);
-      }
-      
-      if (newDocument.tags) {
-        const tags = newDocument.tags.split(',').map(tag => tag.trim());
-        formData.append('tags', JSON.stringify(tags));
-      }
-      
-      await createDocument(formData);
-      await refetchDocuments(); // Recarregar documentos após upload
-      
-      setUploadDialogOpen(false);
-      setSelectedFile(null);
-      setNewDocument({
-        name: "",
-        type: "",
-        employee: "",
-        employeeId: "",
-        department: "",
-        expiryDate: "",
-        tags: ""
-      });
-      
-      alert('Documento enviado com sucesso!');
-    } catch (error) {
-      console.error('Erro ao enviar documento:', error);
-      setError('Falha ao enviar o documento. Por favor, tente novamente.');
-    } finally {
-      setUploading(false);
-    }
-  }
+  // Função de manipulação de campos do formulário
+  const handleFormChange = useCallback((field: string, value: string) => {
+    setNewDocument(prev => ({...prev, [field]: value}));
+  }, []);
   
-  // Modificar a função handleEmployeeSelect para uma implementação estável
+  // Função para seleção de funcionário
   const handleEmployeeSelect = useCallback((employeeId: string) => {
-    // Verificar se o ID é o mesmo que já foi processado anteriormente
-    if (!employeeId || employeeId === previousEmployeeIdRef.current) {
-      return;
-    }
+    if (!employeeId || employeeId === previousEmployeeIdRef.current) return;
     
-    // Atualizar a referência para o valor atual
     previousEmployeeIdRef.current = employeeId;
     
     const employee = employees?.find(emp => emp._id === employeeId);
@@ -366,23 +426,205 @@ export default function DocumentosPage() {
         department: employee.department || prev.department
       }));
     }
-  }, [employees]); // Remover a dependência newDocument.employeeId
+  }, [employees]);
   
-  // Formatação de tamanho de arquivo
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' bytes';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  // MELHORIA 7: Upload de documento aprimorado
+  const handleUploadDocument = async () => {
+    if (!selectedFile || !newDocument.type || !newDocument.employeeId) {
+      setError('Por favor, preencha todos os campos obrigatórios e selecione um arquivo.');
+      return;
+    }
+    
+    setUploading(true);
+    setError(null);
+    
+    try {
+      console.log("Iniciando upload do documento...");
+      
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+      
+      // Campos básicos
+      formData.append('title', newDocument.name || selectedFile.name);
+      formData.append('category', 'OUTROS'); 
+      formData.append('workerId', newDocument.employeeId);
+      
+      // Descrição
+      formData.append('description', `Documento do tipo: ${newDocument.type}`);
+      
+      // Departamento (se disponível)
+      if (newDocument.department) {
+        formData.append('departmentId', newDocument.department);
+      }
+      
+      // Data de expiração - CUIDADO: envie como string, não como Date
+      if (newDocument.expiryDate) {
+        formData.append('expirationDate', newDocument.expiryDate);
+      }
+      
+      // CORREÇÃO PARA O PROBLEMA DE ARRAYS:
+      // Envie tags como uma string - o backend deve fazer o parsing
+      if (newDocument.tags && newDocument.tags.trim()) {
+        // Envie como string simples, não como JSON
+        formData.append('tags', newDocument.tags);
+      }
+      
+      // Log para debug
+      console.log("Estrutura do FormData a ser enviado:");
+      for (const [key, value] of formData.entries()) {
+        // Verificação segura se é um arquivo - evitando o uso direto de instanceof
+        const isFile = value && 
+          typeof value === 'object' && 
+          'name' in value &&
+          'size' in value &&
+          'type' in value;
+          
+        console.log(`${key}: ${isFile ? (value as File).name : value}`);
+      }
+      
+      const response = await createDocument(formData);
+      console.log("Resposta do createDocument:", response);
+      
+      // O restante do código permanece igual
+      setUploadDialogOpen(false);
+      
+      setTimeout(async () => {
+        console.log("Atualizando lista de documentos...");
+        await refetchDocuments();
+        resetForm();
+        
+        alert('Documento enviado com sucesso!');
+      }, 1000);
+    } catch (error: unknown) {
+      console.error('Erro ao enviar documento:', error);
+
+      // Melhor tratamento de erro para não deslogar usuário
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'response' in error &&
+        (error as { response?: unknown }).response
+      ) {
+        const err = error as { response: { status: number; data?: { message?: string } } };
+        console.error('Detalhes da resposta:', err.response.data);
+        setError(`Erro ${err.response.status}: ${err.response.data?.message || 'Falha ao processar solicitação'}`);
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'request' in error &&
+        (error as { request?: unknown }).request
+      ) {
+        setError('O servidor não respondeu. Verifique sua conexão de internet.');
+      } else if (
+        typeof error === 'object' &&
+        error !== null &&
+        'message' in error
+      ) {
+        setError(`Falha ao enviar o documento: ${(error as { message: string }).message}`);
+      } else {
+        setError('Falha ao enviar o documento: erro desconhecido.');
+      }
+
+      // NÃO fechar o diálogo em caso de erro
+    } finally {
+      setUploading(false);
+    }
   };
   
-  // Detectar estado de carregamento geral
+  // Formatação de tamanho de arquivo
+  const formatFileSize = useCallback((bytes: number | string) => {
+    const size = typeof bytes === 'string' ? parseInt(bytes, 10) : bytes;
+    if (isNaN(size)) return '0 bytes';
+    
+    if (size < 1024) return size + ' bytes';
+    if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB';
+    return (size / (1024 * 1024)).toFixed(1) + ' MB';
+  }, []);
+  
+  // Reset do formulário
+  const resetForm = () => {
+    setSelectedFile(null);
+    setNewDocument({
+      name: "",
+      type: "",
+      employee: "",
+      employeeId: "",
+      department: "",
+      expiryDate: "",
+      tags: ""
+    });
+  };
+  
+  // Manipulador de diálogo
+  const handleDialogOpenChange = (open: boolean) => {
+    if (preventRecursiveUpdatesRef.current) return;
+    
+    preventRecursiveUpdatesRef.current = true;
+    
+    setUploadDialogOpen(open);
+    if (!open) {
+      resetForm();
+    }
+    
+    setTimeout(() => {
+      preventRecursiveUpdatesRef.current = false;
+    }, 0);
+  };
+  
+  // Manipuladores de filtros
+  const handleTabChange = (value: string) => {
+    if (preventRecursiveUpdatesRef.current) return;
+    
+    preventRecursiveUpdatesRef.current = true;
+    setActiveTab(value);
+    
+    setTimeout(() => {
+      preventRecursiveUpdatesRef.current = false;
+    }, 0);
+  };
+  
+  const handleTypeChange = (value: string) => {
+    if (preventRecursiveUpdatesRef.current) return;
+    
+    preventRecursiveUpdatesRef.current = true;
+    setSelectedType(value);
+    
+    setTimeout(() => {
+      preventRecursiveUpdatesRef.current = false;
+    }, 0);
+  };
+  
+  const handleDepartmentChange = (value: string) => {
+    if (preventRecursiveUpdatesRef.current) return;
+    
+    preventRecursiveUpdatesRef.current = true;
+    setSelectedDepartment(value);
+    
+    setTimeout(() => {
+      preventRecursiveUpdatesRef.current = false;
+    }, 0);
+  };
+  
+  // Estado de carregamento geral
   const loading = docsLoading || empLoading;
   
   // Combinar erros dos hooks
   useEffect(() => {
     if (docsError) setError(docsError);
-    if (empError) setError(empError);
+    if (empError) setError(empError instanceof Error ? empError.message : String(empError));
   }, [docsError, empError]);
+  
+  // Força render após carregamento
+  useEffect(() => {
+    if (!loading && dataProcessedRef.current && mappedDocuments.length === 0 && apiDocuments && apiDocuments.length > 0) {
+      console.log("Forçando remapeamento de documentos...");
+      const mapped = mapDocumentsToViewModel(apiDocuments as unknown as ApiDocument[]);
+      setMappedDocuments(mapped);
+    }
+  }, [loading, apiDocuments, mappedDocuments, mapDocumentsToViewModel]);
+  
+  // Computar paginação para a renderização
+  const paginationData = getPaginationData();
 
   return (
     <div className="space-y-6 p-6">
@@ -406,13 +648,14 @@ export default function DocumentosPage() {
             Armazene e gerencie documentos importantes da empresa
           </p>
         </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>
+        <Button onClick={() => handleDialogOpenChange(true)}>
           <Upload className="mr-2 h-4 w-4" />
           Enviar Documento
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      {/* MELHORIA 9: Tabs com defaultValue */}
+      <Tabs defaultValue="todos" onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="todos">Todos</TabsTrigger>
           <TabsTrigger value="contratos">Contratos</TabsTrigger>
@@ -434,34 +677,35 @@ export default function DocumentosPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              
+              {/* MELHORIA 10: Selects nativos */}
               <div className="w-full md:w-72">
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Todos">Todos os tipos</SelectItem>
-                    {documentTypes.map(type => (
-                      <SelectItem key={`type-${type.id}`} value={type.label}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select 
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={selectedType}
+                  onChange={(e) => handleTypeChange(e.target.value)}
+                >
+                  <option value="Todos">Todos os tipos</option>
+                  {documentTypes.map(type => (
+                    <option key={`type-${type.id}`} value={type.label}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+              
               <div className="w-full md:w-64">
-                <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por departamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map((dept, index) => (
-                      <SelectItem key={`dept-${index}`} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                  value={selectedDepartment}
+                  onChange={(e) => handleDepartmentChange(e.target.value)}
+                >
+                  {departments.map((dept, index) => (
+                    <option key={`dept-${index}`} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
@@ -472,7 +716,7 @@ export default function DocumentosPage() {
                 <div className="flex justify-center p-12">
                   <div className="animate-spin h-8 w-8 border-4 border-cyan-500 rounded-full border-t-transparent"></div>
                 </div>
-              ) : filteredDocuments.length > 0 ? (
+              ) : paginationData.paginatedDocs.length > 0 ? (
                 <>
                   <Table>
                     <TableHeader>
@@ -487,7 +731,7 @@ export default function DocumentosPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {paginatedDocuments.map((doc) => {
+                      {paginationData.paginatedDocs.map((doc) => {
                         const DocTypeIcon = getDocTypeIcon(doc.type);
                         
                         return (
@@ -508,7 +752,7 @@ export default function DocumentosPage() {
                                 ))}
                               </div>
                               <div className="mt-1 text-xs text-gray-500">
-                                {formatFileSize(parseInt(doc.size))}
+                                {formatFileSize(doc.size)}
                               </div>
                             </TableCell>
                             <TableCell>{doc.employee}</TableCell>
@@ -593,60 +837,113 @@ export default function DocumentosPage() {
                               </div>
                             </TableCell>
                           </TableRow>
-                        )
+                        );
                       })}
                     </TableBody>
                   </Table>
                   
                   {/* Paginação */}
-                  {totalPages > 1 && (
+                  {paginationData.totalPages > 1 && (
                     <div className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 bg-gray-50 dark:bg-gray-800">
                       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-0">
-                        Mostrando {startIndex + 1} a {Math.min(startIndex + itemsPerPage, filteredDocuments.length)} de {filteredDocuments.length} documentos
+                        Mostrando {paginationData.startIndex + 1} a {Math.min(paginationData.startIndex + itemsPerPage, paginationData.totalItems)} de {paginationData.totalItems} documentos
                       </div>
                       <div className="flex space-x-1">
                         <Button 
                           variant="outline" 
                           size="sm"
                           onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
+                          disabled={paginationData.currentPage === 1}
                           className="h-8 px-2"
                         >
                           <ChevronLeft className="h-4 w-4 mr-1" />
                           Anterior
                         </Button>
                         
-                        {/* Lógica para exibir um número limitado de botões de páginas */}
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
+                        {/* Lógica para exibir botões de páginas */}
+                        {(() => {
+                          const buttons = [];
+                          const totalPages = paginationData.totalPages;
+                          let startPage = 1;
+                          let endPage = totalPages;
+                          
+                          // Limitar o número de botões de página exibidos
+                          if (totalPages > 5) {
+                            if (paginationData.currentPage <= 3) {
+                              endPage = 5;
+                            } else if (paginationData.currentPage >= totalPages - 2) {
+                              startPage = totalPages - 4;
+                            } else {
+                              startPage = paginationData.currentPage - 2;
+                              endPage = paginationData.currentPage + 2;
+                            }
                           }
                           
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={currentPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                              className="h-8 w-8 p-0"
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        })}
+                          // Adicionar botão de primeira página se necessário
+                          if (startPage > 1) {
+                            buttons.push(
+                              <Button
+                                key="page-1"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(1)}
+                                className="h-8 w-8 p-0"
+                              >
+                                1
+                              </Button>
+                            );
+                            
+                            if (startPage > 2) {
+                              buttons.push(
+                                <div key="ellipsis-1" className="px-2 py-1">...</div>
+                              );
+                            }
+                          }
+                          
+                          // Adicionar botões de páginas
+                          for (let i = startPage; i <= endPage; i++) {
+                            buttons.push(
+                              <Button
+                                key={`page-${i}`}
+                                variant={paginationData.currentPage === i ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(i)}
+                                className="h-8 w-8 p-0"
+                              >
+                                {i}
+                              </Button>
+                            );
+                          }
+                          
+                          // Adicionar botão de última página se necessário
+                          if (endPage < totalPages) {
+                            if (endPage < totalPages - 1) {
+                              buttons.push(
+                                <div key="ellipsis-2" className="px-2 py-1">...</div>
+                              );
+                            }
+                            
+                            buttons.push(
+                              <Button
+                                key={`page-${totalPages}`}
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="h-8 w-8 p-0"
+                              >
+                                {totalPages}
+                              </Button>
+                            );
+                          }
+                          
+                          return buttons;
+                        })()}
                         
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={currentPage === totalPages}
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, paginationData.totalPages))}
+                          disabled={paginationData.currentPage === paginationData.totalPages}
                           className="h-8 px-2"
                         >
                           Próximo
@@ -661,13 +958,14 @@ export default function DocumentosPage() {
                   <FileText className="h-12 w-12 text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium">Nenhum documento encontrado</h3>
                   <p className="text-sm text-muted-foreground max-w-md mt-2">
-                    Não foi possível encontrar documentos correspondentes aos filtros aplicados. 
-                    Tente ajustar seus critérios de busca ou faça upload de novos documentos.
+                    {mappedDocuments.length > 0 
+                      ? 'Não foi possível encontrar documentos correspondentes aos filtros aplicados. Tente ajustar seus critérios de busca.' 
+                      : 'Não há documentos disponíveis. Adicione um novo documento para começar.'}
                   </p>
                   <Button 
                     variant="outline" 
                     className="mt-4"
-                    onClick={() => setUploadDialogOpen(true)}
+                    onClick={() => handleDialogOpenChange(true)}
                   >
                     <Upload className="mr-2 h-4 w-4" />
                     Enviar novo documento
@@ -679,8 +977,11 @@ export default function DocumentosPage() {
         </TabsContent>
       </Tabs>
       
-      {/* Diálogo para upload de documento */}
-      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+      {/* MELHORIA 11: Diálogo de Upload com formulário nativo */}
+      <Dialog 
+        open={uploadDialogOpen} 
+        onOpenChange={handleDialogOpenChange}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Enviar Novo Documento</DialogTitle>
@@ -721,63 +1022,57 @@ export default function DocumentosPage() {
             
             <div className="space-y-2">
               <label htmlFor="doc-type" className="text-sm font-medium">Tipo de Documento</label>
-              <Select
+              <select
+                id="doc-type"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                 value={newDocument.type}
-                onValueChange={(value) => setNewDocument({...newDocument, type: value})}
+                onChange={(e) => handleFormChange('type', e.target.value)}
               >
-                <SelectTrigger id="doc-type">
-                  <SelectValue placeholder="Selecione o tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes.map(type => (
-                    <SelectItem key={`modal-type-${type.id}`} value={type.label}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>Selecione o tipo</option>
+                {documentTypes.map(type => (
+                  <option key={`modal-type-${type.id}`} value={type.label}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="space-y-2">
               <label htmlFor="employee" className="text-sm font-medium">Funcionário</label>
-              <Select
-                value={newDocument.employeeId || ""}
-                onValueChange={handleEmployeeSelect}
+              <select
+                id="employee"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
+                value={newDocument.employeeId}
+                onChange={(e) => handleEmployeeSelect(e.target.value)}
               >
-                <SelectTrigger id="employee">
-                  <SelectValue placeholder="Selecione o funcionário" />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(employees) ? employees.map(employee => (
-                    <SelectItem 
-                      key={`modal-employee-${employee._id || 'unknown'}`} 
-                      value={employee._id || ''} // Garantir que o valor nunca será undefined
-                    >
-                      {employee.name}
-                    </SelectItem>
-                  )) : null}
-                </SelectContent>
-              </Select>
+                <option value="" disabled>Selecione o funcionário</option>
+                {Array.isArray(employees) ? employees.map(employee => (
+                  <option 
+                    key={`modal-employee-${employee._id || 'unknown'}`} 
+                    value={String(employee._id || '')} 
+                  >
+                    {employee.name}
+                  </option>
+                )) : null}
+              </select>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label htmlFor="department" className="text-sm font-medium">Departamento</label>
-                <Select
+                <select
+                  id="department"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background"
                   value={newDocument.department}
-                  onValueChange={(value) => setNewDocument({...newDocument, department: value})}
+                  onChange={(e) => handleFormChange('department', e.target.value)}
                 >
-                  <SelectTrigger id="department">
-                    <SelectValue placeholder="Departamento" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.slice(1).map((dept, index) => (
-                      <SelectItem key={`modal-dept-${index}`} value={dept}>
-                        {dept}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <option value="" disabled>Departamento</option>
+                  {departments.slice(1).map((dept, index) => (
+                    <option key={`modal-dept-${index}`} value={dept}>
+                      {dept}
+                    </option>
+                  ))}
+                </select>
               </div>
               
               <div className="space-y-2">
@@ -786,7 +1081,7 @@ export default function DocumentosPage() {
                   id="expiry" 
                   type="date" 
                   value={newDocument.expiryDate}
-                  onChange={(e) => setNewDocument({...newDocument, expiryDate: e.target.value})}
+                  onChange={(e) => handleFormChange('expiryDate', e.target.value)}
                 />
               </div>
             </div>
@@ -797,13 +1092,13 @@ export default function DocumentosPage() {
                 id="tags" 
                 placeholder="ex: contrato, permanente" 
                 value={newDocument.tags}
-                onChange={(e) => setNewDocument({...newDocument, tags: e.target.value})}
+                onChange={(e) => handleFormChange('tags', e.target.value)}
               />
             </div>
           </div>
           
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+            <Button variant="outline" onClick={() => handleDialogOpenChange(false)}>
               Cancelar
             </Button>
             <Button 

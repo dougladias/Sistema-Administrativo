@@ -1,79 +1,126 @@
-import api from './api'; // Importa o módulo centralizado de requisições
-import { AxiosResponse } from 'axios';
+import api from './api';
 
-// Define uma interface para o objeto Document
-export interface Document {
+export interface IWorker {
   _id: string;
-  title: string;
-  description?: string;
-  category: string;
-  status: string;
-  fileName?: string;
-  originalName?: string;
-  filePath?: string;
-  fileSize?: number;
-  mimeType?: string;
-  tags?: string[];
-  metaData?: Record<string, unknown>;
-  expirationDate?: Date;
-  createdAt?: string;
-  updatedAt?: string;
+  name: string;
+  email: string;
+  role: string;
+  cpf: string;
+  numero: string;
+  address: string;
+  department: string;
+  salario: number | string;
+  ajuda?: number | string;
+  status: 'active' | 'inactive';
+  contract: 'CLT' | 'PJ';
+  nascimento: Date | string | null;
+  admissao: Date | string | null;
 }
 
-const documentService = {
-  // Obter todos os documentos
-  getAllDocuments: async (filters = {}): Promise<AxiosResponse<Document[]>> => {
-    return api.get('/documents', { params: filters });
+// Tipo para criação de novo funcionário (sem _id que será gerado pelo backend)
+export type IWorkerCreate = Omit<IWorker, '_id'>;
+
+// Tipo para atualização (todos os campos opcionais)
+export type IWorkerUpdate = Partial<IWorker>;
+
+export const workerService = {
+  /**
+   * Busca todos os funcionários
+   */
+  getAll: async (): Promise<IWorker[]> => {
+    const response = await api.get<IWorker[]>('/workers');
+    
+    // Normaliza os dados vindos da API
+    return response.data.map(worker => ({
+      ...worker,
+      // Converter datas com segurança
+      nascimento: worker.nascimento ? new Date(worker.nascimento) : null,
+      admissao: worker.admissao ? new Date(worker.admissao) : null,
+      // Valores padrão para campos opcionais
+      status: worker.status || 'active',
+      department: worker.department || 'Geral'
+    }));
   },
 
-  // Obter um documento por ID
-  getDocumentById: async (id: string): Promise<AxiosResponse<Document>> => {
-    return api.get(`/documents/${id}`);
+  /**
+   * Busca um funcionário pelo ID
+   */
+  getById: async (id: string): Promise<IWorker> => {
+    const response = await api.get<IWorker>(`/workers/${id}`);
+    const worker = response.data;
+    
+    return {
+      ...worker,
+      nascimento: worker.nascimento ? new Date(worker.nascimento) : null,
+      admissao: worker.admissao ? new Date(worker.admissao) : null,
+    };
   },
 
-  // Criar um novo documento (upload)
-  createDocument: async (formData: FormData): Promise<AxiosResponse<Document>> => {
-    return api.post('/documents', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+  /**
+   * Cria um novo funcionário
+   */
+  create: async (worker: Partial<IWorkerCreate>): Promise<IWorker> => {
+    // Prepara datas para envio ao backend
+    const workerToCreate = {
+      ...worker,
+      // Formata as datas para ISO String se existirem
+      nascimento: worker.nascimento ? new Date(worker.nascimento).toISOString() : null,
+      admissao: worker.admissao ? new Date(worker.admissao).toISOString() : null,
+    };
+    
+    const response = await api.post<IWorker>('/workers', workerToCreate);
+    return response.data;
   },
 
-  // Atualizar um documento
-  updateDocument: async (id: string, documentData: Partial<Document>): Promise<AxiosResponse<Document>> => {
-    return api.put(`/documents/${id}`, documentData);
+  /**
+   * Atualiza um funcionário existente
+   */
+  update: async (id: string, updates: Partial<IWorker>): Promise<IWorker> => {
+    // Prepara datas para envio ao backend
+    const workerToUpdate = {
+      ...updates,
+      // Formata as datas para ISO String se existirem
+      nascimento: updates.nascimento ? new Date(updates.nascimento).toISOString() : null,
+      admissao: updates.admissao ? new Date(updates.admissao).toISOString() : null,
+    };
+    
+    const response = await api.put<IWorker>(`/workers/${id}`, workerToUpdate);
+    return response.data;
   },
 
-  // Excluir um documento
-  deleteDocument: async (id: string): Promise<AxiosResponse> => {
-    return api.delete(`/documents/${id}`);
+  /**
+   * Remove um funcionário
+   */
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/workers/${id}`);
   },
 
-  // Visualizar um documento
-  viewDocument: (id: string): void => {
-    window.open(`${api.defaults.baseURL}/documents/${id}/view`, '_blank');
+  /**
+   * Registra entrada de ponto
+   */
+  registerEntry: async (id: string, observation?: string): Promise<void> => {
+    await api.post(`/workers/${id}/entry`, { observation });
   },
 
-  // Fazer download de um documento
-  downloadDocument: (id: string): void => {
-    window.open(`${api.defaults.baseURL}/documents/${id}/download`, '_blank');
+  /**
+   * Registra saída de ponto
+   */
+  registerExit: async (id: string, observation?: string): Promise<void> => {
+    await api.post(`/workers/${id}/exit`, { observation });
   },
 
-  // Obter todos os templates (documentos do tipo template)
-  getAllTemplates: async (): Promise<AxiosResponse<Document[]>> => {
-    return api.get('/documents', { params: { category: 'OUTROS', type: 'template' } });
+  /**
+   * Registra ausência
+   */
+  registerAbsence: async (id: string, reason: string): Promise<void> => {
+    await api.post(`/workers/${id}/absence`, { reason });
   },
-
-  // Visualizar um template
-  viewTemplate: (id: string): void => {
-    window.open(`${api.defaults.baseURL}/documents/${id}/view`, '_blank');
-  },
-
-  // Fazer download de um template
-  downloadTemplate: (id: string): void => {
-    window.open(`${api.defaults.baseURL}/documents/${id}/download`, '_blank');
-  },
+  
+  /**
+   * Busca departamentos disponíveis
+   */
+  getDepartments: async (): Promise<string[]> => {
+    const response = await api.get<{departments: string[]}>('/workers/departments');
+    return response.data.departments;
+  }
 };
-
-export default documentService;

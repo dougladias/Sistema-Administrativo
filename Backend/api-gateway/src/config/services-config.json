@@ -1,6 +1,0 @@
-{
-    "worker-service": { "port": 4014 },
-    "benefits-service": { "port": 4003 },    
-    "document-service": { "port": 4005 },    
-    "auth-service": { "port": 4002 }   
-  }

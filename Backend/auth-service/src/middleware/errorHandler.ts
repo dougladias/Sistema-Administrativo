@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import logger from '../config/logger';
+import logger from '../../../shared/src/utils/logger';
 import ApiError from '../utils/apiError';
 
 export const errorHandler = (

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -11,15 +10,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { IWorker } from "@/models/Worker";
 import { Edit, Trash2, Search, Eye, EyeOff, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import EditWorkerModal from "./edit-funcionario/EditWorkModal";
 import AddWorkerModal from "./new-funcionario/AddWorkerModal";
 import { ButtonGlitchBrightness } from "@/components/ui/ButtonGlitch";
-import api from "@/services/api";
-import { safeFormatDate } from "@/utils/date-helpers";
+
+// Importar o hook personalizado em vez de usar o API diretamente
+import { useWorkers } from "@/hooks/useWorkers";
+import { IWorker } from "@/services/workerService";
 
 // Animation variants
 const containerVariants = {
@@ -56,17 +56,36 @@ const tableRowVariants = {
 };
 
 export default function EmployeesPage() {
-  const queryClient = useQueryClient();
-  const [searchTerm, setSearchTerm] = useState("");
-  const [visibleSalaries, setVisibleSalaries] = useState<
-    Record<string, boolean>
-  >({});
+  // Estados locais apenas para UI/UX
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<IWorker | null>(null);
   const [animateIcons, setAnimateIcons] = useState(false);
 
-  // Trigger icon animations periodically
+  // Usar o hook personalizado em vez de chamadas diretas à API
+  const {
+    // Dados
+    workers,
+    filteredWorkers,
+    isLoading,
+    error,
+    
+    // Operações
+    updateWorker,
+    deleteWorker,
+    
+    // UI State
+    searchTerm,
+    setSearchTerm,
+    visibleSalaries,
+    toggleSalaryVisibility,
+    
+    // Utils
+    formatSalary,
+    formatDate
+  } = useWorkers();
+
+  // Efeito para animar ícones periodicamente (manter funcionalidade existente)
   useEffect(() => {
     const interval = setInterval(() => {
       setAnimateIcons(true);
@@ -75,136 +94,10 @@ export default function EmployeesPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Data fetching - conectando ao seu backend existente
-  const {
-    data: workers = [],
-    isLoading,
-    error,
-  } = useQuery<IWorker[]>({
-    queryKey: ['workers'],
-    queryFn: async () => {
-      const response = await api.get<IWorker[]>('/workers');
-      
-      // Mapeia os dados para garantir que as datas sejam objetos Date ou null
-      // Este é um ponto crítico para evitar o erro "Invalid time value"
-      return response.data.map(worker => {
-        try {
-          return {
-            ...worker,
-            // Converter datas com segurança - se não for possível converter, retorna null
-            nascimento: worker.nascimento ? new Date(worker.nascimento) : null,
-            admissao: worker.admissao ? new Date(worker.admissao) : null,
-            // Definir valores padrão para campos opcionais para evitar erros
-            status: worker.status || 'active',
-            department: worker.department || 'Geral'
-          } as IWorker; // Type assertion to match the expected IWorker type
-        } catch (err) {
-          console.error(`Erro processando dados do funcionário ${worker.name || 'desconhecido'}:`, err);
-          // Em caso de erro, retorna o objeto com datas nulas
-          return {
-            ...worker,
-            nascimento: null,
-            admissao: null,
-            status: worker.status || 'active',
-            department: worker.department || 'Geral'
-          } as unknown as IWorker; // Double type assertion to safely convert
-        }
-      });
-    },
-  });
-
-  // Delete worker mutation - conectando ao seu backend existente
-  const deleteWorker = useMutation({
-    mutationFn: async (workerId: string) => {
-      const response = await api.delete(`/workers/${workerId}`);
-      return response;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["workers"] }),
-    onError: (err) => {
-      console.error("Failed to delete worker", err);
-      alert("Failed to delete worker");
-    },
-  });
-
-  // Update worker details mutation - conectando ao seu backend existente
-  const updateWorkerDetails = useMutation({
-    mutationFn: async ({
-      workerId,
-      updates,
-    }: {
-      workerId: string;
-      updates: Partial<IWorker>;
-    }) => {
-      return api.put(`/workers/${workerId}`, updates);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workers"] });
-      // Se a ajuda de custo foi atualizada, sincronizar com benefícios
-      queryClient.invalidateQueries({ queryKey: ["allEmployeeBenefits"] });
-      setIsEditModalOpen(false);
-    },
-    onError: (err) => {
-      console.error("Failed to update worker details", err);
-      alert("Failed to update worker details");
-    },
-  });
-
-   // Ordenar workers filtrados pelo nome
-   const filteredWorkers = React.useMemo(() => {
-    const filtered = workers.filter(worker => {
-      if (!searchTerm.trim()) return true;
-      
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        worker.name?.toLowerCase().includes(searchLower) ||
-        worker.email?.toLowerCase().includes(searchLower) ||
-        worker.role?.toLowerCase().includes(searchLower)
-      )
-    });
-    
-    // Já está ordenado desde a consulta, mas mantemos aqui para segurança
-    return filtered.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
-  }, [workers, searchTerm]);
-
-  // Format currency without limiting decimals
-  const formatSalary = (value: number | string) => {
-    if (!value) return '-';
-    
-    try {
-      const numValue = typeof value === 'string' ? parseFloat(value) : value;
-      if (isNaN(numValue)) return '-';
-      
-      return new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(numValue);
-    } catch (error) {
-      console.error("Erro ao formatar salário:", error);
-      return '-';
-    }
-  };
-
-  // Format date to Brazilian format - Versão segura modificada para evitar erros
-  const formatDate = (date: Date | string | null | undefined) => {
-    if (!date) return 'Data não informada';
-    
-    return safeFormatDate(date);
-  };
-
-  // Toggle salary visibility
-  const toggleSalaryVisibility = (workerId: string) => {
-    setVisibleSalaries((prev) => ({
-      ...prev,
-      [workerId]: !prev[workerId],
-    }));
-  };
-
-  // Handlers
+  // Handlers adaptados para usar o hook
   const handleDelete = (workerId: string) => {
     if (confirm("Tem certeza que quer deletar esse funcionário?")) {
-      deleteWorker.mutate(workerId);
+      deleteWorker(workerId);
     }
   };
 
@@ -223,26 +116,29 @@ export default function EmployeesPage() {
     nascimento: string;
     admissao: string;
     salario: string;
-    ajuda: string; // Incluir campo de ajuda de custo
+    ajuda: string;
     numero: string;
     email: string;
     address: string;
     contract: string;
     role: string;
+    department: string;
+    status: string;
   }) => {
     try {
-      // Forçar interpretação da data no fuso horário local adicionando hora zero
       const workerToUpdate: Partial<IWorker> = {
         ...updatedWorker,
-        nascimento: new Date(`${updatedWorker.nascimento}T00:00:00`),
-        admissao: new Date(`${updatedWorker.admissao}T00:00:00`),
+        nascimento: updatedWorker.nascimento,
+        admissao: updatedWorker.admissao,
         contract: updatedWorker.contract as "CLT" | "PJ",
+        department: updatedWorker.department,
+        status: (["active", "inactive", "other"].includes(updatedWorker.status) 
+          ? updatedWorker.status 
+          : undefined) as "active" | "inactive" | "other" | undefined,
       };
 
-      updateWorkerDetails.mutate({
-        workerId: updatedWorker._id,
-        updates: workerToUpdate,
-      });
+      updateWorker(updatedWorker._id, workerToUpdate);
+      setIsEditModalOpen(false);
     } catch (error) {
       console.error("Erro ao processar datas durante a atualização:", error);
       alert("Erro ao processar as datas. Verifique o formato e tente novamente.");
@@ -258,6 +154,7 @@ export default function EmployeesPage() {
     setIsAddModalOpen(false);
   };
 
+  // O restante do componente permanece igual, apenas usando as variáveis e funções do hook
   return (
     <motion.div
       className="space-y-6"
@@ -516,7 +413,6 @@ export default function EmployeesPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {/* Usando a formatação segura de data */}
                         {formatDate(worker.admissao)}
                       </TableCell>
                       <TableCell>
@@ -591,14 +487,15 @@ export default function EmployeesPage() {
             onClose={handleCloseEditModal}
             worker={{
               ...selectedWorker,
-              _id: selectedWorker._id as string,
+              _id: String(selectedWorker._id),
               nascimento: selectedWorker.nascimento 
                 ? selectedWorker.nascimento.toString().split("T")[0]
                 : "",
               admissao: selectedWorker.admissao 
                 ? selectedWorker.admissao.toString().split("T")[0]
                 : "",
-              ajuda: selectedWorker.ajuda || "", // Provide default empty string for ajuda
+              ajuda: selectedWorker.ajuda || "",
+              status: selectedWorker.status ?? "active",
             }}
             onSave={handleSave}
           />

@@ -24,13 +24,17 @@ export const create = async (req: Request, res: Response, next: NextFunction) =>
       throw new ApiError('Arquivo não enviado', 400);
     }
     
-    const userId = req.user?.id || '123456'; // Usar ID padrão se autenticação estiver desativada
+    // O arquivo está disponível em req.file.buffer (ao usar memoryStorage)
+    const userId = req.user?.id;
+    
+    if (!userId) {
+      throw new ApiError('Usuário não autenticado', 401);
+    }
     
     const document = await documentService.create(req.body, req.file, userId);
     
     res.status(201).json(document);
   } catch (error) {
-    logger.error('Erro ao criar documento:', error);
     next(error);
   }
 };
@@ -121,7 +125,7 @@ export const download = async (req: Request, res: Response, next: NextFunction) 
   }
 };
 
-// Controlador para visualizar arquivo (sem download)
+// Exemplo de como o controlador deve retornar o documento para visualização
 export const view = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
@@ -133,10 +137,9 @@ export const view = async (req: Request, res: Response, next: NextFunction) => {
     res.setHeader('Content-Type', fileInfo.mimeType);
     res.setHeader('Content-Disposition', 'inline');
     
-    // Enviar o conteúdo do arquivo diretamente do banco de dados
+    // Enviar o buffer do MongoDB diretamente
     res.end(fileInfo.fileContent);
   } catch (error) {
-    logger.error(`Erro ao visualizar documento ID ${req.params.id}:`, error);
     next(error);
   }
 };

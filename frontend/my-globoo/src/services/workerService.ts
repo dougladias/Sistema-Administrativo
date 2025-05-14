@@ -1,51 +1,61 @@
 import api from './api';
-import { IWorker } from '@/models/Worker';
+import { IWorker } from '../../../../Backend/shared/src/models/worker.model';
 
-const workerService = {
+// Exportar o tipo para uso no frontend
+export type { IWorker };
+
+// Centraliza todas as chamadas de API relacionadas a workers
+export const workerService = {
   // Obter todos os funcionários
-  getAllWorkers: async (filters = {}) => {
-    return api.get('/workers', { params: filters });
+  getAll: async (filters = {}): Promise<IWorker[]> => {
+    const response = await api.get('/workers', { params: filters });
+    return response.data;
   },
 
   // Obter um funcionário por ID
-  getWorkerById: async (id: string) => {
-    return api.get(`/workers/${id}`);
+  getById: async (id: string): Promise<IWorker> => {
+    const response = await api.get(`/workers/${id}`);
+    return response.data;
   },
 
   // Criar um novo funcionário
-  createWorker: async (workerData: Omit<IWorker, '_id'>) => {
-    return api.post('/workers', workerData);
+  create: async (workerData: Omit<IWorker, '_id'>): Promise<IWorker> => {
+    const response = await api.post('/workers', workerData);
+    return response.data;
   },
 
   // Atualizar um funcionário
-  updateWorker: async (id: string, workerData: Partial<IWorker>) => {
-    return api.put(`/workers/${id}`, workerData);
+  update: async (id: string, workerData: Partial<IWorker>): Promise<IWorker> => {
+    const response = await api.put(`/workers/${id}`, workerData);
+    return response.data;
   },
 
   // Excluir um funcionário
-  deleteWorker: async (id: string) => {
-    return api.delete(`/workers/${id}`);
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/workers/${id}`);
   },
 
   // Registrar entrada de um funcionário
-  registerEntry: async (id: string) => {
-    return api.post(`/workers/${id}/entry`);
+  registerEntry: async (id: string, observation?: string): Promise<void> => {
+    const response = await api.post(`/workers/${id}/entry`, { observation });
+    return response.data;
   },
 
   // Registrar saída de um funcionário
-  registerExit: async (id: string) => {
-    return api.post(`/workers/${id}/exit`);
+  registerExit: async (id: string, observation?: string): Promise<void> => {
+    const response = await api.post(`/workers/${id}/exit`, { observation });
+    return response.data;
   },
 
   // Registrar ausência de um funcionário
-  registerAbsence: async (id: string) => {
-    return api.post(`/workers/${id}/absence`);
+  registerAbsence: async (id: string, reason?: string): Promise<void> => {
+    const response = await api.post(`/workers/${id}/absence`, { reason });
+    return response.data;
   },
 
   // Obter departamentos
-  getDepartments: async () => {
-    return api.get('/workers/departments');
+  getDepartments: async (): Promise<string[]> => {
+    const response = await api.get('/workers/departments');
+    return response.data.departments || [];
   }
 };
-
-export default workerService;

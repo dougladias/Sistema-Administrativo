@@ -1,89 +1,56 @@
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-import * as fs from 'fs';
-import { z } from 'zod';
+import dotenv from 'dotenv';
+import path from 'path';
 
-// Carrega o arquivo .env
-const envPath = path.resolve(__dirname, '../../../.env');
-dotenv.config({ path: envPath });
+// Primeiro tentamos carregar o .env local do API Gateway
+dotenv.config();
+// Depois tentamos o .env compartilhado, se necessário
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
-// Schema para validação
-const envSchema = z.object({
-  // Ambiente
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.string().transform(val => parseInt(val, 10)).default('4000'),
-  
-  // JWT Config
-  JWT_SECRET: z.string({
-    required_error: "JWT_SECRET é obrigatório no arquivo .env"
-  }),
-  JWT_EXPIRATION: z.string().default('1d'),
-  
-  // URLs dos Serviços
-  AUTH_SERVICE_URL: z.string().default('http://localhost:4010'),
-  DOCUMENT_SERVICE_URL: z.string().default('http://localhost:4011'),
-  WORKER_SERVICE_URL: z.string().default('http://localhost:4014'),
-  
-  
-  // Configurações de Rate Limiting
-  RATE_LIMIT_WINDOW_MS: z.string().transform(val => parseInt(val, 10)).default('60000'),
-  RATE_LIMIT_MAX: z.string().transform(val => parseInt(val, 10)).default('100'),
-
-  // Aplicação
-  APP_NAME: z.string().default('Globoo API Gateway'),
-});
-
-// Carrega e valida as variáveis de ambiente
-function loadEnvironment() {
-  try {
-    const _env = {
-      NODE_ENV: process.env.NODE_ENV,
-      PORT: process.env.PORT,
-      JWT_SECRET: process.env.JWT_SECRET,
-      JWT_EXPIRATION: process.env.JWT_EXPIRATION,
-      AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL,
-      DOCUMENT_SERVICE_URL: process.env.DOCUMENT_SERVICE_URL,
-      WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL,      
-      RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS,
-      RATE_LIMIT_MAX: process.env.RATE_LIMIT_MAX,
-      APP_NAME: process.env.APP_NAME,
-    };
-
-    // Verifica se o arquivo .env existe
-    return envSchema.parse(_env);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      console.error('❌ Erro na validação das variáveis de ambiente:');
-      error.errors.forEach(err => {
-        console.error(`- ${err.path.join('.')}: ${err.message}`);
-      });
-    } else {
-      console.error('❌ Erro ao carregar variáveis de ambiente:', error);
-    }
-    
-    process.exit(1);
-  }
-}
-
-// Carrega as variáveis de ambiente
-export const env = {
-  NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test',
-  PORT: Number(process.env.PORT) || 3000,
-  JWT_SECRET: process.env.JWT_SECRET || '',
-  JWT_EXPIRATION: process.env.JWT_EXPIRATION || '1h',
-  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL || '',
-  DOCUMENT_SERVICE_URL: process.env.DOCUMENT_SERVICE_URL || '',
-  WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL || '',
-  REDIS_HOST: process.env.REDIS_HOST || '',
-  REDIS_PORT: process.env.REDIS_PORT || '',
-  REDIS_PASSWORD: process.env.REDIS_PASSWORD || '',
-  REDIS_DB: process.env.REDIS_DB || '',
-  RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS ? Number(process.env.RATE_LIMIT_WINDOW_MS) : undefined,
-  RATE_LIMIT_MAX: process.env.RATE_LIMIT_MAX ? Number(process.env.RATE_LIMIT_MAX) : undefined,
-  AUTH_RATE_LIMIT_MAX: process.env.AUTH_RATE_LIMIT_MAX ? Number(process.env.AUTH_RATE_LIMIT_MAX) : undefined,
-  API_KEY: process.env.API_KEY || '',
-  APP_NAME: process.env.APP_NAME || 'api-gateway',
-  serviceAutostart: process.env.SERVICE_AUTOSTART === 'true' || false,
+// Função auxiliar para pegar valores booleanos de variáveis de ambiente
+const getBooleanEnv = (key: string, defaultValue: boolean): boolean => {
+  const value = process.env[key];
+  if (value === undefined) return defaultValue;
+  return value.toLowerCase() === 'true';
 };
-export const isProd = env.NODE_ENV === 'production';
-export const isDev = env.NODE_ENV === 'development';
+
+// Exportar constantes para verificação do ambiente
+export const isProd = process.env.NODE_ENV === 'production';
+export const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+export const isTest = process.env.NODE_ENV === 'test';
+
+// Exportar todas as variáveis de ambiente tipadas
+export const env = {
+  // Configurações básicas
+  NODE_ENV: process.env.NODE_ENV || 'development',
+  PORT: Number(process.env.PORT) || 3005,
+  
+  // URLs dos microserviços
+  WORKER_SERVICE_URL: process.env.WORKER_SERVICE_URL || 'http://localhost:4014',
+  DOCUMENT_SERVICE_URL: process.env.DOCUMENT_SERVICE_URL || 'http://localhost:4011',
+  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL || 'http://localhost:4010',
+  
+  // Configurações de segurança
+  JWT_SECRET: process.env.JWT_SECRET || 'desenvolvimento_nao_usar_em_producao',
+  ENABLE_RATE_LIMIT: getBooleanEnv('ENABLE_RATE_LIMIT', true),
+  API_RATE_LIMIT: Number(process.env.API_RATE_LIMIT) || 100,
+  API_RATE_LIMIT_WINDOW_MS: Number(process.env.API_RATE_LIMIT_WINDOW_MS) || 60000, 
+  
+  // Configurações de logging
+  LOG_LEVEL: process.env.LOG_LEVEL || (isProd ? 'info' : 'debug'),
+  ENABLE_REQUEST_LOGGING: getBooleanEnv('ENABLE_REQUEST_LOGGING', true),
+  
+  // Configurações de timeout para proxies (em milissegundos)
+  WORKER_SERVICE_TIMEOUT: Number(process.env.WORKER_SERVICE_TIMEOUT) || 30000,
+  DOCUMENT_SERVICE_TIMEOUT: Number(process.env.DOCUMENT_SERVICE_TIMEOUT) || 45000, 
+  AUTH_SERVICE_TIMEOUT: Number(process.env.AUTH_SERVICE_TIMEOUT) || 10000, 
+  
+  // Configurações de desenvolvimento
+  SERVICE_AUTOSTART: getBooleanEnv('SERVICE_AUTOSTART', false),
+  
+  // Configurações de cors
+  CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+  CORS_METHODS: process.env.CORS_METHODS || 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  
+  // Configurações de compressão
+  ENABLE_COMPRESSION: getBooleanEnv('ENABLE_COMPRESSION', true)
+};

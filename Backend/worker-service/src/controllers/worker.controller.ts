@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import workerService from '../services/worker.service';
 
 
-// Controlador para gerenciar operações relacionadas a funcionários.
 // Este controlador lida com as requisições HTTP e interage com o serviço de funcionários.
 export const getDepartments = async (req: Request, res: Response, next: NextFunction) => {
   try {
@@ -36,6 +35,7 @@ export const findById = async (req: Request, res: Response, next: NextFunction) 
 
 // Controlador para criar um novo funcionário
 export const create = async (req: Request, res: Response, next: NextFunction) => {
+  console.log('Body recebido no worker-service:', req.body); // <--- Adicione esta linha
   try {
     const result = await workerService.create(req.body);
     res.status(201).json(result);

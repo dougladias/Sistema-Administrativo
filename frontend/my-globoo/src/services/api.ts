@@ -8,18 +8,39 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 10000, // 10 segundos de timeout
+  timeout: 10000, 
 });
 
 // Interceptor para adicionar token de autenticação
 api.interceptors.request.use(
   async (config) => {
-    // Obter a sessão atual
-    const session = await getSession();
-    
-    // Adicionar token ao cabeçalho se disponível
-    if (session?.accessToken) {
-      config.headers.Authorization = `Bearer ${session.accessToken}`;
+    try {
+      // Obter a sessão atual
+      const session = await getSession();
+      
+      // Log para debug
+      console.log("Session obtida:", session ? "Sim" : "Não");
+      
+      // Verificar diferentes localizações possíveis do token
+      type SessionWithAccessToken = {
+        accessToken?: string;
+        user?: {
+          accessToken?: string;
+        };
+      };
+      const sessionTyped = session as SessionWithAccessToken | null;
+      const token = sessionTyped?.accessToken ||
+                   sessionTyped?.user?.accessToken ||
+                   localStorage.getItem('token');
+      
+      if (token) {
+        console.log("Token encontrado, adicionando ao cabeçalho");
+        config.headers.Authorization = `Bearer ${token}`;
+      } else {
+        console.warn("Nenhum token disponível para autenticação");
+      }
+    } catch (error) {
+      console.error("Erro ao obter sessão:", error);
     }
     
     return config;
@@ -74,5 +95,31 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  [key: string]: unknown;
+}
+
+// Função para fazer login
+export const login = async (credentials: LoginCredentials): Promise<LoginResponse> => {
+  try {
+    const response = await axios.post<LoginResponse>('http://localhost:3005/api/auth/login', credentials);
+    const { accessToken } = response.data;
+    
+    // Salvar o token no localStorage
+    localStorage.setItem('token', accessToken);
+    
+    return response.data;
+  } catch (error) {
+    console.error("Erro ao fazer login:", error);
+    throw error;
+  }
+};
 
 export default api;

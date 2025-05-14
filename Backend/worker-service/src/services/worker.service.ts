@@ -147,6 +147,7 @@ class WorkerService {
         { new: true, runValidators: true }
       );
       
+      // Verificar se a atualização foi bem-sucedida
       return updatedWorker;
     } catch (error) {
       logger.error(`Erro no serviço ao atualizar funcionário ID ${id}:`, error);

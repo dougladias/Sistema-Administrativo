@@ -1,185 +1,183 @@
-import { exec } from 'child_process';
-import path from 'path';
-import axios from 'axios';
+import { spawn, ChildProcess } from 'child_process';
+import { join } from 'path';
+import { env, isDev } from '../config/env';
 import logger from '../utils/logger';
-import { env } from '../config/env';
-import fs from 'fs';
+import { setServiceStatus } from './service-registry';
 
-// Carregar configuração dos serviços
-const servicesConfig = require('../config/services-config.json');
 
-// Interface para informações dos serviços
-interface ServiceInfo {
+ // Interface para configuração de um serviço
+interface ServiceConfig {
   name: string;
-  path: string;
-  url: string;
-  isRunning: boolean;
+  command: string;
+  args: string[];
+  cwd: string;
+  env?: Record<string, string>;
+  autoStart?: boolean;
 }
 
-// Gerenciamento de serviços
-class ServiceManager {
-  private services: Map<string, ServiceInfo>;
 
-  constructor() {
-    this.services = new Map();
+// Mapa de processos ativos para cada serviço
+const serviceProcesses: Record<string, ChildProcess> = {};
 
-    // Registrar todos os serviços
-    this.registerService('workers', '../../../worker-service', `http://localhost:${process.env.WORKER_SERVICE_PORT || 4014}`);
-    this.registerService('document', '../../../document-service', `http://localhost:${process.env.DOCUMENT_SERVICE_PORT || 4011}`);
-    this.registerService('auth', '../../../auth-service', `http://localhost:${process.env.AUTH_SERVICE_PORT || 4010}`);
-    this.registerService('benefits', '../../../benefit-service', `http://localhost:${process.env.BENEFIT_SERVICE_PORT || 4012}`);
+
+// Configurações para iniciar os serviços automaticamente em ambiente de desenvolvimento
+const servicesConfig: Record<string, ServiceConfig> = {
+  authService: {
+    name: 'Auth Service',
+    command: 'npm',
+    args: ['run', 'start:dev'],
+    cwd: join(__dirname, '../../../auth-service'),
+    autoStart: true
+  },
+  // Worker Service
+  workerService: {
+    name: 'Worker Service',
+    command: 'npm',
+    args: ['run', 'start:dev'],
+    cwd: join(__dirname, '../../../worker-service'),
+    autoStart: true
+  },
+  // Document Service
+  documentService: {
+    name: 'Document Service',
+    command: 'npm',
+    args: ['run', 'start:dev'],
+    cwd: join(__dirname, '../../../document-service'),
+    autoStart: true
+  }
+};
+
+
+// Inicia um serviço específico
+async function startService(serviceName: keyof typeof servicesConfig): Promise<boolean> {
+  if (!isDev) {
+    logger.warn(`Não é possível iniciar o serviço ${serviceName} fora do ambiente de desenvolvimento`);
+    return false;
   }
 
-  // Registrar um novo serviço
-  private registerService(name: string, relativePath: string, url: string) {
-    const servicePath = path.resolve(__dirname, relativePath);
-    logger.info(`Registrando serviço ${name} no caminho: ${servicePath}`);
-    
-    // Verificar se o diretório existe
-    if (fs.existsSync(servicePath)) {
-      logger.info(`Diretório existe: ${servicePath}`);
-    } else {
-      logger.error(`Diretório não existe: ${servicePath}`);
-    }
-    
-    this.services.set(name, {
-      name,
-      path: servicePath,
-      url,
-      isRunning: false
+  // Verifica se o serviço já está em
+  if (serviceProcesses[serviceName]) {
+    logger.warn(`Serviço ${serviceName} já está em execução`);
+    return true;
+  }
+  // Verifica se a configuração do serviço existe
+  const serviceConfig = servicesConfig[serviceName];
+  if (!serviceConfig) {
+    logger.error(`Configuração não encontrada para o serviço ${serviceName}`);
+    return false;
+  }
+ // Verifica se o serviço está configurado para iniciar automaticamente
+  try {
+    logger.info(`Iniciando serviço: ${serviceConfig.name}`);
+
+    const childProc: ChildProcess = spawn(serviceConfig.command, serviceConfig.args, {
+      cwd: serviceConfig.cwd,
+      env: { ...process.env, ...serviceConfig.env },
+      stdio: 'pipe'
     });
-  }
 
-  // Verificar se um serviço está em execução
-  public async checkServiceHealth(serviceName: string): Promise<boolean> {
-    const service = this.services.get(serviceName);
-    
-    if (!service) {
-      logger.error(`Serviço ${serviceName} não registrado`);
-      return false;
-    }
+    // Verifica se o processo foi iniciado corretamente
+    serviceProcesses[serviceName] = childProc;
 
-    try {
-      const response = await axios.get(`${service.url}/health`, { timeout: 2000 });
-      const isRunning = response.status === 200;
-      
-      // Atualizar o status do serviço
-      service.isRunning = isRunning;
-      this.services.set(serviceName, service);
-      
-      return isRunning;
-    } catch (error) {
-      service.isRunning = false;
-      this.services.set(serviceName, service);
-      return false;
-    }
-  }
+    // Configurar handlers para saída do processo
+    childProc.stdout?.on('data', (data) => {
+      logger.debug(`[${serviceConfig.name}] ${data.toString().trim()}`);
+    });
 
-  // Iniciar um serviço específico
-  public async startService(serviceName: string): Promise<boolean> {
-    const service = this.services.get(serviceName);
-    
-    if (!service) {
-      logger.error(`Serviço ${serviceName} não registrado`);
-      return false;
-    }
+    // Configurar handlers para erro do processo
+    childProc.stderr?.on('data', (data) => {
+      logger.warn(`[${serviceConfig.name}] ${data.toString().trim()}`);
+    });
 
-    // Verificar se o serviço já está em execução
-    const isRunning = await this.checkServiceHealth(serviceName);
-    
-    if (isRunning) {
-      logger.info(`Serviço ${serviceName} já está em execução`);
-      return true;
-    }
-
-    logger.info(`Iniciando serviço ${serviceName}...`);
-    
-    try {
-      // Verificar se o package.json existe no diretório do serviço
-      const packageJsonPath = path.join(service.path, 'package.json');
-      if (!fs.existsSync(packageJsonPath)) {
-        logger.error(`package.json não encontrado em ${packageJsonPath}`);
-        return false;
+    // Configurar handler para término do processo
+    childProc.on('close', (code) => {
+      if (code !== 0) {
+        logger.error(`Serviço ${serviceConfig.name} encerrou com código ${code}`);
+        setServiceStatus(serviceName as any, false, undefined, `Processo encerrado com código ${code}`);
       } else {
-        logger.info(`package.json encontrado em ${packageJsonPath}`);
+        logger.info(`Serviço ${serviceConfig.name} encerrado normalmente`);
       }
+      delete serviceProcesses[serviceName];
+    });
 
-      // Obter configuração do serviço
-      const serviceConfig = servicesConfig[service.name + '-service'] || { port: 3000 };
-      const port = serviceConfig?.port || 3000;
-      
-      // Comando para iniciar o serviço
-      const command = process.platform === 'win32'
-        ? `start cmd /k "cd /d "${service.path}" && npm run dev"`
-        : `cd "${service.path}" && PORT=${port} npm run dev &`;
-      
-      logger.info(`Executando comando: ${command}`);
-      
-      // Executar o comando em uma nova janela de comando no Windows
-      // ou em background no Unix
-      exec(command, (error, stdout, stderr) => {
-        if (error) {
-          logger.error(`Falha ao iniciar serviço ${serviceName}:`, error);
-          if (stdout) logger.info(`Comando stdout: ${stdout}`);
-          if (stderr) logger.error(`Comando stderr: ${stderr}`);
-        } else {
-          logger.info(`Comando de início do serviço ${serviceName} executado com sucesso`);
-        }
-      });
-      
-      // Aguardar um tempo para o serviço iniciar
-      await new Promise(resolve => setTimeout(resolve, 5000));
-      
-      // Verificar se o serviço está respondendo
-      const serviceRunning = await this.checkServiceHealth(serviceName);
-      if (serviceRunning) {
-        logger.info(`Serviço ${serviceName} está em execução`);
-        return true;
-      } else {
-        logger.warn(`Serviço ${serviceName} pode não ter iniciado corretamente`);
-        return false;
-      }
-    } catch (error) {
-      logger.error(`Erro ao iniciar serviço ${serviceName}:`, error);
-      return false;
-    }
-  }
-
-  // Iniciar todos os serviços registrados
-  public async startAllServices(): Promise<void> {
-    if (!env.serviceAutostart) {
-      logger.info('Início automático de serviços desativado, pulando...');
-      return;
-    }
-
-    logger.info('Iniciando todos os serviços registrados...');
+    // Marcar serviço como ativo após inicialização
+    setServiceStatus(serviceName as any, true);
     
-    const startPromises = [];
-    
-    for (const [serviceName] of this.services) {
-      // Iniciar cada serviço e armazenar a promessa
-      startPromises.push(this.startService(serviceName));
-    }
-    
-    // Aguardar o início de todos os serviços
-    await Promise.all(startPromises);
-    
-    logger.info('Todos os serviços foram iniciados');
-  }
-
-  // Obter status de todos os serviços
-  public async getServicesStatus(): Promise<Record<string, boolean>> {
-    const status: Record<string, boolean> = {};
-    
-    for (const [serviceName] of this.services) {
-      status[serviceName] = await this.checkServiceHealth(serviceName);
-    }
-    
-    return status;
+    return true;
+  } catch (error) {
+    logger.error(`Erro ao iniciar serviço ${serviceConfig.name}:`, error);
+    return false;
   }
 }
 
-// Exportar uma instância do gerenciador de serviços
-export const serviceManager = new ServiceManager();
 
-export default serviceManager;
+// Para um serviço específico
+async function stopService(serviceName: keyof typeof servicesConfig): Promise<boolean> {
+  const childProc = serviceProcesses[serviceName];
+  
+  // Verifica se o serviço está em execução
+  if (!childProc) {
+    logger.warn(`Tentativa de parar serviço que não está em execução: ${serviceName}`);
+    return false;
+  }
+
+  // Verifica se a configuração do serviço existe
+  return new Promise((resolve) => {
+    childProc.on('close', () => {
+      logger.info(`Serviço ${serviceName} encerrado com sucesso`);
+      delete serviceProcesses[serviceName];
+      setServiceStatus(serviceName as any, false);
+      resolve(true);
+    });
+
+    // Envia um sinal para terminar o processo
+    childProc.kill('SIGTERM');
+
+    // Timeout para forçar o encerramento se não responder
+    setTimeout(() => {
+      if (serviceProcesses[serviceName]) {
+        logger.warn(`Forçando encerramento do serviço ${serviceName}`);
+        childProc.kill('SIGKILL');
+      }
+    }, 5000);
+  });
+}
+
+
+// Inicia todos os serviços configurados para inicialização automática 
+async function startAllServices(): Promise<Record<string, boolean>> {
+  const results: Record<string, boolean> = {};
+
+  // Filtra os serviços que devem iniciar automaticamente
+  const servicesToStart = Object.entries(servicesConfig)
+    .filter(([_, config]) => config.autoStart)
+    .map(([name, _]) => name);
+
+  // Inicia cada serviço
+  for (const serviceName of servicesToStart) {
+    results[serviceName] = await startService(serviceName as keyof typeof servicesConfig);
+  }
+
+  return results;
+}
+
+
+// Para todos os serviços em execução
+async function stopAllServices(): Promise<void> {
+  const runningServices = Object.keys(serviceProcesses);
+  
+  await Promise.all(
+    runningServices.map(serviceName => 
+      stopService(serviceName as keyof typeof servicesConfig)
+    )
+  );
+}
+
+// Exportar o gerenciador de serviços
+export const serviceManager = {
+  startService,
+  stopService,
+  startAllServices,
+  stopAllServices,
+  getRunningServices: () => Object.keys(serviceProcesses)
+};

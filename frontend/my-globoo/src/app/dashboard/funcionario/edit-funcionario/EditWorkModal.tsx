@@ -3,15 +3,16 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ButtonGlitchBrightness } from "@/components/ui/ButtonGlitch";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from "@/components/ui/select";
-import { adjustDateForTimezone } from "@/utils/date-helpers";
+import { adjustDateForTimezone } from "@/utils/date-helpers"; 
 
+// Interface para as propriedades do modal de edição de funcionário
 interface EditWorkerModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -22,13 +23,14 @@ interface EditWorkerModalProps {
     nascimento: string;
     admissao: string;
     salario: string;
-    
     ajuda: string;
     numero: string;
     email: string;
     address: string;
     contract: string;
     role: string;
+    department: string;
+    status: string;
   } | null;
   onSave: (updatedWorker: {
     _id: string;
@@ -43,161 +45,157 @@ interface EditWorkerModalProps {
     address: string;
     contract: string;
     role: string;
+    department: string;
+    status: string;
   }) => void;
 }
 
+// Tipos de contrato disponíveis
+const CONTRACT_TYPES = [
+  { value: "CLT", label: "CLT" },
+  { value: "PJ", label: "PJ" }
+];
+
+// Variantes para animações
+const FORM_VARIANTS = {
+  hidden: { opacity: 0, y: -20 },
+  visible: { opacity: 1, y: 0, transition: { staggerChildren: 0.1 } },
+};
+
+const INPUT_VARIANTS = {
+  hidden: { opacity: 0, y: -20 },
+  visible: { opacity: 1, y: 0 },
+};
+
+// Função para garantir que a data não vai sofrer ajuste de fuso
+function ensureCorrectDateFormat(dateString: string): string {
+  if (!dateString) return '';
+  
+  try {
+    // Se já for uma data ISO completa, retorna como está
+    if (dateString.includes('T')) return dateString;
+    
+    // Caso contrário, adiciona T12:00:00.000Z para garantir que não haverá mudança de dia
+    // ao converter para timezone local
+    return `${dateString}T12:00:00.000Z`;
+  } catch (error) {
+    console.error("Erro ao processar data:", error);
+    return dateString;
+  }
+}
+
+// Modal para edição de dados do funcionário
 const EditWorkerModal: React.FC<EditWorkerModalProps> = ({
   isOpen,
   onClose,
   worker,
   onSave,
 }) => {
-  // Estado para os campos do formulário
-  const [formData, setFormData] = useState<{
-    _id: string;
-    name: string;
-    cpf: string;
-    nascimento: string;
-    admissao: string;
-    salario: string;
-    ajuda: string;
-    numero: string;
-    email: string;
-    address: string;
-    contract: string;
-    role: string;
-  }>({
+  // Estado inicial do formulário
+  const [formData, setFormData] = useState({
     _id: "",
     name: "",
     cpf: "",
     nascimento: "",
     admissao: "",
-
-
-salario: "",
+    salario: "",
     ajuda: "",
     numero: "",
     email: "",
     address: "",
-    contract: "CLT", // Valor padrão
+    contract: "CLT",
     role: "",
+    department: "",
+    status: "active",
   });
 
-  const [didInitialize, setDidInitialize] = useState(false);
-
+  // Preenche o formulário apenas quando o worker mudar
   useEffect(() => {
-    // Carrega os dados somente na abertura do modal e não a cada renderização
-    if (worker && isOpen && !didInitialize) {
-      console.log('Dados do worker recebidos:', {
-        nascimento: worker.nascimento,
-        admissao: worker.admissao
-      });
-      
-      // Aqui usamos a função adjustDateForTimezone para garantir que não haja problemas com fuso horário
+    if (worker && isOpen) {
       setFormData({
         _id: worker._id || "",
         name: worker.name || "",
         cpf: worker.cpf || "",
-        
-        // Tratar as datas com segurança para evitar o erro "Invalid time value"
-        nascimento: worker.nascimento ? adjustDateForTimezone(worker.nascimento).split('T')[0] : "",
-        admissao: worker.admissao ? adjustDateForTimezone(worker.admissao).split('T')[0] : "",
-        
+        // Usa helper para garantir formato yyyy-MM-dd no input date
+        nascimento: adjustDateForTimezone(worker.nascimento),
+        admissao: adjustDateForTimezone(worker.admissao),
         salario: worker.salario || "",
         ajuda: worker.ajuda || "",
         numero: worker.numero || "",
         email: worker.email || "",
         address: worker.address || "",
         contract: worker.contract || "CLT",
-        role: worker.role || ""
+        role: worker.role || "",
+        department: worker.department || "Geral",
+        status: worker.status || "active",
       });
-      
-      console.log('Datas ajustadas:', {
-        nascimento: worker.nascimento ? adjustDateForTimezone(worker.nascimento).split('T')[0] : "",
-        admissao: worker.admissao ? adjustDateForTimezone(worker.admissao).split('T')[0] : ""
-      });
-      
-      setDidInitialize(true);
     }
-    
-    // Resetar o flag quando o modal é fechado
-    if (!isOpen) {
-      setDidInitialize(false);
-    }
-  }, [worker, isOpen, didInitialize]);
+    // Só executa quando o worker._id mudar ou o modal abrir/fechar
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [worker?._id, isOpen]);
 
+  // Manipula alterações nos campos de input  
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   }, []);
 
+  // Manipula alterações no tipo de contrato (Select)  
   const handleContractChange = useCallback((value: string) => {
-    console.log("Contrato selecionado:", value);
     if (value) {
-      setFormData((prev) => {
-        // Só atualiza se o valor for diferente do atual
-        if (prev.contract !== value) {
-          return { ...prev, contract: value };
-        }
-        return prev;
-      });
+      setFormData((prev) => ({ ...prev, contract: value }));
     }
   }, []);
 
+  // Processa o envio do formulário 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validação básica antes de salvar
+
+    // Validação dos campos obrigatórios
     if (!formData.name || !formData.cpf || !formData.nascimento || !formData.admissao) {
       alert("Por favor, preencha todos os campos obrigatórios.");
       return;
     }
-    
+
     try {
-      // Verificar se as datas são válidas
+      // Validação das datas
       const nascimentoDate = new Date(formData.nascimento);
       const admissaoDate = new Date(formData.admissao);
-      
+
       if (isNaN(nascimentoDate.getTime()) || isNaN(admissaoDate.getTime())) {
         alert("Por favor, verifique o formato das datas.");
         return;
       }
-      
-      onSave(formData);
+
+      // Ajusta o formato das datas para prevenir problemas de fuso horário
+      const updatedFormData = {
+        ...formData,
+        nascimento: ensureCorrectDateFormat(formData.nascimento),
+        admissao: ensureCorrectDateFormat(formData.admissao)
+      };
+
+      // Salva os dados e fecha o modal
+      onSave(updatedFormData);
       onClose();
     } catch (error) {
-      console.error("Erro ao processar datas:", error);
-      alert("Erro ao processar as datas. Verifique o formato e tente novamente.");
+      console.error("Erro ao processar formulário:", error);
+      alert("Ocorreu um erro. Verifique os dados e tente novamente.");
     }
   }, [formData, onSave, onClose]);
 
+  // Não renderiza nada se o modal não estiver aberto ou não houver dados do funcionário
   if (!isOpen || !worker) return null;
-
-  const formVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: { opacity: 1, y: 0, transition: { staggerChildren: 0.1 } },
-  };
-
-  const inputVariants = {
-    hidden: { opacity: 0, y: -20 },
-    visible: { opacity: 1, y: 0 },
-  };
-
-  const contractTypes = [
-    { value: "CLT", label: "CLT" },
-    { value: "PJ", label: "PJ" }
-  ];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      {/* Alterado: removida a classe bg-gray-800 e definida cor em hex */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.95 }}
         className="p-6 rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto"
-        style={{ backgroundColor: "#1F2937" }} // Equivalente a bg-gray-800
+        style={{ backgroundColor: "#1F2937" }}
       >
+        {/* Cabeçalho do modal */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-white">Editar Funcionário</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
@@ -205,14 +203,16 @@ salario: "",
           </button>
         </div>
 
+        {/* Formulário de edição */}
         <motion.form
           onSubmit={handleSubmit}
           className="space-y-4 text-white"
           initial="hidden"
           animate="visible"
-          variants={formVariants}
+          variants={FORM_VARIANTS}
         >
-          <motion.div variants={inputVariants}>
+          {/* Nome */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="name" className="block text-sm font-medium text-gray-300">
               Nome:
             </label>
@@ -226,7 +226,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* CPF */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="cpf" className="block text-sm font-medium text-gray-300">
               CPF:
             </label>
@@ -240,7 +242,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Data de nascimento */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="nascimento" className="block text-sm font-medium text-gray-300">
               Nascimento:
             </label>
@@ -254,7 +258,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Data de admissão */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="admissao" className="block text-sm font-medium text-gray-300">
               Admissão:
             </label>
@@ -268,7 +274,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Salário */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="salario" className="block text-sm font-medium text-gray-300">
               Salário:
             </label>
@@ -282,8 +290,9 @@ salario: "",
               required
             />
           </motion.div>
-          {/* Campo de Ajuda de Custo (mapeado para "ajuda") */}
-          <motion.div variants={inputVariants}>
+
+          {/* Ajuda de custo */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="ajuda" className="block text-sm font-medium text-gray-300">
               Ajuda de Custo:
             </label>
@@ -297,7 +306,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Telefone */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="numero" className="block text-sm font-medium text-gray-300">
               Número:
             </label>
@@ -311,7 +322,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Email */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="email" className="block text-sm font-medium text-gray-300">
               Email:
             </label>
@@ -325,7 +338,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Endereço */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="address" className="block text-sm font-medium text-gray-300">
               Endereço:
             </label>
@@ -339,7 +354,9 @@ salario: "",
               required
             />
           </motion.div>
-          <motion.div variants={inputVariants}>
+
+          {/* Tipo de contrato */}
+          <motion.div variants={INPUT_VARIANTS}>
             <label htmlFor="contract" className="block text-sm font-medium text-gray-300">
               Tipo de contrato:
             </label>
@@ -351,7 +368,7 @@ salario: "",
                 <SelectValue placeholder="Selecione o tipo de contrato" />
               </SelectTrigger>
               <SelectContent>
-                {contractTypes.map((type) => (
+                {CONTRACT_TYPES.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
                     {type.label}
                   </SelectItem>
@@ -359,36 +376,17 @@ salario: "",
               </SelectContent>
             </Select>
           </motion.div>
-          <motion.div variants={inputVariants}>
-            <label htmlFor="role" className="block text-sm font-medium text-gray-300">
-              Cargo:
-            </label>
-            <input
-              type="text"
-              id="role"
-              name="role"
-              className="border rounded border-gray-500 pl-2 w-full"
-              value={formData.role}
-              onChange={handleChange}
-              required
-            />
-          </motion.div>
-          <div className="flex justify-end space-x-2">
-            <motion.div variants={inputVariants}>
-              <ButtonGlitchBrightness
-                text="Cancelar"
-                type="button"
-                onClick={onClose}
-                className="bg-red-500/80 hover:bg-red-600 dark:bg-red-500/80 dark:hover:bg-red-600"
-              />
-            </motion.div>
-            <motion.div variants={inputVariants}>
-              <ButtonGlitchBrightness
-                text="Salvar"
-                type="submit"
-                className="bg-cyan-500/80 hover:bg-cyan-600 dark:bg-cyan-500/80 dark:hover:bg-cyan-600"
-              />
-            </motion.div>
+
+          {/* Botões de ação */}
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-white bg-gray-600 rounded hover:bg-gray-700"
+            >
+              Cancelar
+            </button>
+            <ButtonGlitchBrightness type="submit" text="Salvar Alterações" />
           </div>
         </motion.form>
       </motion.div>

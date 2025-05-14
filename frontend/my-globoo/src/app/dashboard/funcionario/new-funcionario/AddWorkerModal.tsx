@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ButtonGlitchBrightness } from "@/components/ui/ButtonGlitch";
 import { 
@@ -11,7 +10,10 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import api from "@/services/api";
+
+// Importar o hook ao invés do api diretamente
+import { useWorkers } from "@/hooks/useWorkers";
+import { toast } from "react-hot-toast"; // Se não estiver usando, pode remover
 
 interface AddWorkerModalProps {
   isOpen: boolean;
@@ -25,7 +27,8 @@ const contractTypes = [
 ];
 
 const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
-  const queryClient = useQueryClient();
+  // Usar hook customizado para obter o método de criação
+  const { createWorker, isCreating } = useWorkers();
 
   // State for all required fields
   const [name, setName] = useState("");
@@ -39,53 +42,10 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
   const [address, setAddress] = useState("");
   const [contract, setContract] = useState("CLT"); // Valor padrão CLT
   const [role, setRole] = useState("");
+  const [department, setDepartment] = useState(""); // Adicionado campo department
   const [successMessage, setSuccessMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  const addWorker = useMutation({
-    mutationFn: async (newWorker: {
-      name: string;
-      cpf: string;
-      nascimento: string;
-      admissao: string;
-      salario: string;
-      ajuda: string;
-      numero: string;
-      email: string;
-      address: string;
-      contract: string;
-      role: string;
-    }) => {
-      // Usar o API centralizado em vez de axios diretamente
-      const response = await api.post("/workers", newWorker);
-      return response;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["workers"] });
-      setName("");
-      setCpf("");
-      setNascimento("");
-      setAdmissao("");
-      setSalario("");
-      setAjuda("");
-      setNumero("");
-      setEmail("");
-      setAddress("");
-      setContract("CLT");
-      setRole("");
-      setSuccessMessage("Funcionário adicionado com sucesso!");
-      setTimeout(() => {
-        setSuccessMessage("");
-        onClose(); // Close the modal after success
-      }, 2000); // Close after 2 seconds to show the success message
-    },
-    onError: (error) => {
-      console.error("Failed to add worker", error);
-      alert("Failed to add worker");
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validar formulário
@@ -101,7 +61,11 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
       !contract.trim() ||
       !role.trim()
     ) {
-      alert("Por favor, preencha todos os campos obrigatórios");
+      if (toast && toast.error) {
+        toast.error("Por favor, preencha todos os campos obrigatórios");
+      } else {
+        alert("Por favor, preencha todos os campos obrigatórios");
+      }
       return;
     }
     
@@ -111,31 +75,73 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
       const admissaoDate = new Date(admissao);
       
       if (isNaN(nascimentoDate.getTime()) || isNaN(admissaoDate.getTime())) {
-        alert("Por favor, verifique o formato das datas.");
+        if (toast && toast.error) {
+          toast.error("Por favor, verifique o formato das datas");
+        } else {
+          alert("Por favor, verifique o formato das datas.");
+        }
         return;
       }
       
-      // Ajustar datas para evitar problemas de fuso horário
-      const nascimentoAjustado = `${nascimento}T12:00:00`;
-      const admissaoAjustado = `${admissao}T12:00:00`;
-      
-      setIsLoading(true);
-      addWorker.mutate({
+      // Preparar objeto worker com datas ajustadas
+      const workerToCreate = {
         name,
         cpf,
-        nascimento: nascimentoAjustado,
-        admissao: admissaoAjustado,
         salario,
         ajuda,
         numero,
         email,
         address,
-        contract,
+        contract: contract as "CLT" | "PJ",
         role,
-      });
+        department: department || "Geral",
+        status: "active" as const,
+        nascimento,
+        admissao,
+      };
+      
+      try {
+        // Chamar método do hook que cuida da mutação e atualiza a cache
+        await createWorker(workerToCreate);
+        
+        // Feedback de sucesso
+        setSuccessMessage("Funcionário adicionado com sucesso!");
+        toast?.success("Funcionário adicionado com sucesso!");
+        
+        // Limpar formulário
+        setName("");
+        setCpf("");
+        setNascimento("");
+        setAdmissao("");
+        setSalario("");
+        setAjuda("");
+        setNumero("");
+        setEmail("");
+        setAddress("");
+        setContract("CLT");
+        setRole("");
+        setDepartment("");
+        
+        // Fechar modal após delay
+        setTimeout(() => {
+          setSuccessMessage("");
+          onClose();
+        }, 2000);
+      } catch (error) {
+        console.error("Erro ao adicionar funcionário:", error);
+        if (toast && toast.error) {
+          toast.error("Erro ao adicionar funcionário");
+        } else {
+          alert("Erro ao adicionar funcionário");
+        }
+      }
     } catch (error) {
       console.error("Erro ao processar datas:", error);
-      alert("Erro ao processar as datas. Verifique o formato e tente novamente.");
+      if (toast && toast.error) {
+        toast.error("Erro ao processar as datas");
+      } else {
+        alert("Erro ao processar as datas. Verifique o formato e tente novamente.");
+      }
     }
   };
 
@@ -177,9 +183,26 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
           </motion.div>
         )}
 
-        {isLoading ? (
-          <div className="flex items-center justify-center">
-            Carregando...
+        {isCreating ? (
+          <div className="flex flex-col items-center justify-center py-8">
+            <motion.div
+              className="w-12 h-12 mb-3 border-4 border-gray-500 rounded-full"
+              style={{ borderTopColor: "#22d3ee" }}
+              animate={{ rotate: 360 }}
+              transition={{
+                duration: 1,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+            <motion.span
+              className="text-cyan-500 font-medium"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+            >
+              Adicionando funcionário...
+            </motion.span>
           </div>
         ) : (
           <motion.form
@@ -270,7 +293,6 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
                 className="text-white border rounded border-gray-500 pl-2 w-full"
                 value={ajuda}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAjuda(e.target.value)}
-                required
               />
             </motion.div>
             <motion.div variants={inputVariants}>
@@ -316,6 +338,19 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
               />
             </motion.div>
             <motion.div variants={inputVariants}>
+              <label htmlFor="department" className="block text-sm font-medium text-gray-300">
+                Departamento:
+              </label>
+              <input
+                type="text"
+                id="department"
+                name="department"
+                className="text-white border rounded border-gray-500 pl-2 w-full"
+                value={department}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDepartment(e.target.value)}
+              />
+            </motion.div>
+            <motion.div variants={inputVariants}>
               <label htmlFor="contract" className="block text-sm font-medium text-gray-300">
                 Tipo de contrato:
               </label>
@@ -351,9 +386,9 @@ const AddWorkerModal: React.FC<AddWorkerModalProps> = ({ isOpen, onClose }) => {
             </motion.div>
             <motion.div variants={inputVariants}>
               <ButtonGlitchBrightness
-                text={addWorker.isPending ? "Adicionando..." : "Adicionar Funcionário"}
+                text="Adicionar Funcionário"
                 type="submit"
-                disabled={addWorker.isPending}
+                disabled={isCreating}
                 className="w-full flex text-center items-center justify-center"
               />
             </motion.div>

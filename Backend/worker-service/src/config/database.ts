@@ -6,7 +6,6 @@ const logger = createLogger({ serviceName: 'worker-service', customMetadata: { m
 
 
 // Inicializa a conexão com o banco de dados
-
 export async function connectDB(): Promise<void> {
   try {
     // Verifica se já está conectado

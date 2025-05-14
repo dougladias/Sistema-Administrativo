@@ -2,6 +2,27 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import documentService from '@/services/documentService';
 import { IDocument } from '@/models/Document';
+import api from '@/services/api'; // Certifique-se de que o serviço API está importado
+
+export const createDocument = async (formData: FormData) => {
+  try {
+    // Obter o token de autenticação do armazenamento local
+    const token = localStorage.getItem('authToken');
+    
+    const config = {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${token}`
+      }
+    };
+    
+    const response = await api.post('/api/documents', formData, config);
+    return response.data;
+  } catch (error) {
+    console.error("Erro no createDocument:", error);
+    throw error;
+  }
+};
 
 export function useDocuments() {
   const queryClient = useQueryClient();
@@ -18,14 +39,21 @@ export function useDocuments() {
     queryFn: async () => {
       try {
         const response = await documentService.getAllDocuments();
-        // Define o tipo da resposta para evitar o erro de tipo 'never'
-        type ResponseType = { data: IDocument[] | { data: IDocument[] } };
-        const typedResponse = response as unknown as ResponseType;
         
-        // Processar e garantir que todos os documentos tenham os campos necessários
-        const processedData = Array.isArray(typedResponse.data) 
-          ? typedResponse.data 
-          : typedResponse.data.data;
+        // Processar a resposta, considerando as diferentes estruturas possíveis
+        let processedData: IDocument[];
+        
+        if (response.data && Array.isArray(response.data)) {
+          // Se a resposta é um array diretamente
+          processedData = response.data;
+        } else if (response.data && response.data.data && Array.isArray(response.data.data)) {
+          // Se a resposta é um objeto com uma propriedade data que é um array
+          processedData = response.data.data;
+        } else {
+          // Caso a resposta não seja do formato esperado, log e retorna array vazio
+          console.error('Formato de resposta inesperado:', response);
+          return [];
+        }
           
         // Garante que cada documento tenha a propriedade uploadedBy
         return processedData.map(doc => ({
@@ -34,6 +62,7 @@ export function useDocuments() {
         }));
       } catch (error) {
         console.error('Erro ao buscar documentos:', error);
+        setError('Falha ao buscar documentos');
         throw error;
       }
     },
@@ -42,7 +71,7 @@ export function useDocuments() {
   // Criar documento
   const createDocumentMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      return documentService.createDocument(formData);
+      return createDocument(formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
@@ -57,12 +86,21 @@ export function useDocuments() {
   // Atualizar documento
   const updateDocumentMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<IDocument> }) => {
-      // Converter campos Date para string para corresponder ao tipo Partial<Document>
-      const convertedData = {
-        ...data,
-        createdAt: data.createdAt instanceof Date ? data.createdAt.toISOString() : data.createdAt,
-        updatedAt: data.updatedAt instanceof Date ? data.updatedAt.toISOString() : data.updatedAt,
-      };
+      // Converter campos Date para string
+      const convertedData = { ...data };
+      
+      if (data.createdAt instanceof Date) {
+        convertedData.createdAt = data.createdAt.toISOString();
+      }
+      
+      if (data.updatedAt instanceof Date) {
+        convertedData.updatedAt = data.updatedAt.toISOString();
+      }
+      
+      if (data.expirationDate instanceof Date) {
+        convertedData.expirationDate = data.expirationDate.toISOString();
+      }
+      
       return documentService.updateDocument(id, convertedData);
     },
     onSuccess: () => {

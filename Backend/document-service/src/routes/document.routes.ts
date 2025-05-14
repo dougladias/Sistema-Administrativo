@@ -3,8 +3,9 @@ import * as documentController from '../controllers/document.controller';
 import { UserRole } from '../utils/types';
 import multer from 'multer';
 
-
-const upload = multer({ dest: 'uploads/' });
+// Usar memoryStorage para manter o arquivo em memória (não salvar em disco)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 const router = Router();
 
