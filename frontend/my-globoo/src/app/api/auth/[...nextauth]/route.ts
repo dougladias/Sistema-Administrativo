@@ -5,7 +5,7 @@ import axios, { AxiosError } from 'axios';
 
 
 // URL direta do serviço de autenticação para debug
-const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:4010';
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || 'http://localhost:3005/api/auth';
 
 // Interface para o usuário autenticado
 interface CustomUser extends User {
@@ -73,13 +73,7 @@ const handler = NextAuth({
           });
           
           console.log('Resposta da autenticação:', response.data);
-
-          // Depois que o login direto funcionar, você pode mudar para o API Gateway
-          // const response = await axios.post(`${API_GATEWAY_URL}/api/auth/login`, {
-          //   email: credentials.email,
-          //   password: credentials.password
-          // });
-
+          
           const data = response.data;
           
           if (data.tokens && data.user) {

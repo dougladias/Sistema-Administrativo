@@ -8,7 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 10000, 
+  timeout: 10000,
 });
 
 // Interceptor para adicionar token de autenticação
@@ -17,10 +17,10 @@ api.interceptors.request.use(
     try {
       // Obter a sessão atual
       const session = await getSession();
-      
+
       // Log para debug
       console.log("Session obtida:", session ? "Sim" : "Não");
-      
+
       // Verificar diferentes localizações possíveis do token
       type SessionWithAccessToken = {
         accessToken?: string;
@@ -28,21 +28,25 @@ api.interceptors.request.use(
           accessToken?: string;
         };
       };
+
+      // Verificar se o token está disponível na sessão ou no localStorage
       const sessionTyped = session as SessionWithAccessToken | null;
       const token = sessionTyped?.accessToken ||
-                   sessionTyped?.user?.accessToken ||
-                   localStorage.getItem('token');
-      
+        sessionTyped?.user?.accessToken ||
+        localStorage.getItem('token');
+
+      // Adicionar o token ao cabeçalho Authorization
       if (token) {
         console.log("Token encontrado, adicionando ao cabeçalho");
         config.headers.Authorization = `Bearer ${token}`;
       } else {
         console.warn("Nenhum token disponível para autenticação");
       }
+      // Retornar a configuração da requisição
     } catch (error) {
       console.error("Erro ao obter sessão:", error);
     }
-    
+
     return config;
   },
   (error) => Promise.reject(error)
@@ -53,20 +57,20 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // Evitar loop infinito se o refresh token já falhou
     if (originalRequest._retry) {
       return Promise.reject(error);
     }
-    
+
     // Verificar se o erro é de autenticação (401) 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       try {
         // Tentar fazer o refresh token
         const response = await axios.post('/api/auth/refresh');
-        
+
         if (response.data?.accessToken) {
           // Atualizar o token na requisição original
           originalRequest.headers.Authorization = `Bearer ${response.data.accessToken}`;
@@ -84,23 +88,24 @@ api.interceptors.response.use(
         return Promise.reject(refreshError);
       }
     }
-    
+
     // Melhor tratamento para erros de rede
     if (!error.response) {
       // Erro de rede ou sem resposta do servidor
       console.error('Erro de conectividade com o servidor:', error.message);
       // Adicionar aqui lógica para mostrar mensagem de erro amigável ao usuário
     }
-    
+
     return Promise.reject(error);
   }
 );
-
+// Definição de tipos para as credenciais de login e resposta
 interface LoginCredentials {
   email: string;
   password: string;
 }
 
+// Definição de tipos para a resposta de login
 interface LoginResponse {
   accessToken: string;
   [key: string]: unknown;
@@ -111,10 +116,10 @@ export const login = async (credentials: LoginCredentials): Promise<LoginRespons
   try {
     const response = await axios.post<LoginResponse>('http://localhost:3005/api/auth/login', credentials);
     const { accessToken } = response.data;
-    
+
     // Salvar o token no localStorage
     localStorage.setItem('token', accessToken);
-    
+
     return response.data;
   } catch (error) {
     console.error("Erro ao fazer login:", error);

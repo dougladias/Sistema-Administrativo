@@ -31,6 +31,7 @@ interface DashboardStats {
   averageCost: number;
 }
 
+// Função para obter os cards do dashboard
 export const getDashboardCards = () => {
   return [
     {
@@ -72,6 +73,7 @@ export const getDashboardCards = () => {
   ];
 };
 
+// Função para obter os cards do dashboard do assistente
 export const getAssistantDashboardCards = () => {
   return [
     {
@@ -113,6 +115,7 @@ export const getAssistantDashboardCards = () => {
   ];
 };
 
+// Função para obter as atividades recentes
 export const getRecentActivities = () => {
   return [
     {
@@ -148,6 +151,7 @@ export const getRecentActivities = () => {
   ];
 };
 
+// Função para obter as estatísticas do dashboard
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   return {
     totalEmployees: 32,

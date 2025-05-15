@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import documentService from '@/services/documentService';
-import { IDocument } from '@/models/Document';
+import { documentService } from '@/services/documentService';
 import api from '@/services/api'; // Certifique-se de que o serviço API está importado
 
 export const createDocument = async (formData: FormData) => {
